@@ -1,1 +1,1 @@
-docker run -p 6379:6379 --name redis -d redis-stack-server
+docker run -p 6379:6379 --name redis -d redis/redis-stack-server
