@@ -9,3 +9,5 @@ dump.rdb
 .project
 bin
 .DS_Store
+
+.env

@@ -1,0 +1,16 @@
+# redis-stack-server
+
+services:
+  redis:
+    image: redis/redis-stack-server:latest
+    container_name: redis-stack-server
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+      - "8001:8001"
+    volumes:
+      - redis-data:/data
+
+volumes:
+  redis-data:
+    driver: local
