@@ -34,3 +34,7 @@ steps:
     env:
       - 'CLOUDSDK_COMPUTE_ZONE=us-central1'
       - 'CLOUDSDK_CONTAINER_CLUSTER=autopilot-cluster-1'
+
+
+logsBucket: gs://helpful-ally-451215-a3-cloudbuild-logs
+serviceAccount: 178150524411-compute@developer.gserviceaccount.com
