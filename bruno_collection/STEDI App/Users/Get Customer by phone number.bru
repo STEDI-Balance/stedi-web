@@ -1,0 +1,19 @@
+meta {
+  name: Get Customer by phone number
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{stediurl}}/customer/+13852367324
+  body: none
+  auth: none
+}
+
+params:query {
+  ~: 
+}
+
+headers {
+  suresteps.session.token: {{token}}
+}

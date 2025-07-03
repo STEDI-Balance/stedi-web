@@ -1,0 +1,30 @@
+meta {
+  name: Create User
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{stediurl}}/user
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "userName": "daniel@email.com",
+    "email": "daniel@email.com",
+    "password": "P@ssw0rd12",
+    "phone": "+13852367324",
+    "birthDate": "2001-01-01",
+    "verifyPassword": "P@ssw0rd12",
+    "agreedToTermsOfUseDate": 1714444830351,
+    "agreedToCookiePolicyDate": 1714444830351,
+    "agreedToPrivacyPolicyDate": 1714444830351,
+    "agreedToTextMessageDate": 1714444830351
+  }
+}
+
+vars:post-response {
+  token: res.body
+}

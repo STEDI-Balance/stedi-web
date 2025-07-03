@@ -1,0 +1,24 @@
+meta {
+  name: Create Customer
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{stediurl}}/customer
+  body: json
+  auth: none
+}
+
+headers {
+  suresteps.session.token: {{token}}
+}
+
+body:json {
+  {
+    "customerName": "Sammy Johnson",
+    "email": "sammy.johnson@gmail.com",
+    "phone": "8017551212",
+    "birthDay": "2001-01-01"
+  }
+}

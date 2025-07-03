@@ -1,0 +1,22 @@
+meta {
+  name: Log in to STEDI
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{stediurl}}/login
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+      "userName":"sammy.johnson@gmail.com",
+      "password":"P@ssw0rd12"
+  }
+}
+
+vars:post-response {
+  token: res.body
+}

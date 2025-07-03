@@ -1,0 +1,26 @@
+meta {
+  name: WhatsApp Sector Message
+  type: http
+  seq: 7
+}
+
+post {
+  url: {{stediurl}}/sendtext?whatsApp=true
+  body: json
+  auth: none
+}
+
+params:query {
+  whatsApp: true
+}
+
+headers {
+  suresteps.session.token: 0f31632d-4a09-4efb-864f-1d2f57d3ac99
+}
+
+body:json {
+  {
+      "phoneNumber":"18017190908",
+      "message":"10"
+  }
+}
