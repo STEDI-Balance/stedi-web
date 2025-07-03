@@ -52,6 +52,8 @@ public class CustomerService {
     public static String createOrUpdateCustomer(Customer newCustomer, boolean update) throws Exception{
         if(newCustomer.getPhone().isEmpty() && !newCustomer.getWhatsAppPhone().isEmpty()){
             newCustomer.setPhone(newCustomer.getWhatsAppPhone());
+        } else if (!newCustomer.getPhone().isEmpty() && newCustomer.getWhatsAppPhone().isEmpty()){
+            newCustomer.setWhatsAppPhone(newCustomer.getPhone());
         }
         String phone = SendText.getFormattedPhone(newCustomer.getPhone(), newCustomer.getRegion());//ex: 801-719-0908 becomes: +18017190908
         newCustomer.setPhone(phone);

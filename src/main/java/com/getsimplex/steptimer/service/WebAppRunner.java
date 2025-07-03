@@ -17,11 +17,9 @@ import spark.Request;
 import spark.Response;
 import spark.Spark;
 
-import java.util.Date;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Logger;
-import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 
 import static spark.Spark.*;
@@ -98,32 +96,61 @@ public class WebAppRunner {
             res.body(response);
             return response;
         }
-            );
-        patch("/user/:username",(req,res)->{//update password
-            userFilter(req,res);
-            User existingUser = (User) JedisData.getFromRedisMap(req.params("username"), User.class);
-            String response = "";
-            if (existingUser!=null){
-                User userUpdate = gson.fromJson(req.body(),User.class);
-                if (CreateNewUser.validatePassword(userUpdate.getPassword())){
-                    existingUser.setPassword(DigestUtils.sha256Hex(userUpdate.getPassword()));
-                    JedisData.updateRedisMap(existingUser,existingUser.getUserName());
-                    res.status(200);
-                    response = "Updated password";
-                    res.body(response);
-                } else{
-                    res.status(400);
-                    response="Password doesn't meet requirements";
-                    res.body(response);
-                }
-            } else{
-                res.status(404);//user not found
-                response = "User "+req.params("username")+" not found.";
-                res.body(response);
+        );
+
+        patch("/user/:username", (req, res) -> {
+            Optional<User> loggedInUserOptional = userFilter(req, res);
+            String existingUserName = req.params("username");
+            if(loggedInUserOptional.isEmpty() || !existingUserName.equals(loggedInUserOptional.get().getUserName())){//users can only update their own information
+                res.status(403); // Forbidden
+                res.body("You are not authorized to update this user.");
+                return "You are not authorized to update this user.";
             }
 
+            User existingUser = (User) JedisData.getFromRedisMap(existingUserName, User.class);
+            String response = "";
+
+            if (existingUser != null) {
+                User userUpdate = gson.fromJson(req.body(), User.class);
+
+                boolean updated = false;
+
+                // Update password if provided
+                if (userUpdate.getPassword() != null) {
+                    if (CreateNewUser.validatePassword(userUpdate.getPassword())) {
+                        existingUser.setPassword(DigestUtils.sha256Hex(userUpdate.getPassword()));
+                        updated = true;
+                    } else {
+                        res.status(400);
+                        response = "Password doesn't meet requirements";
+                        res.body(response);
+                        return response;
+                    }
+                }
+
+                // Update expoPushToken if provided
+                if (userUpdate.getExpoPushToken() != null) {
+                    existingUser.setExpoPushToken(userUpdate.getExpoPushToken());
+                    updated = true;
+                }
+
+                if (updated) {
+                    JedisData.updateRedisMap(existingUser, existingUser.getUserName());
+                    res.status(200);
+                    response = "User updated successfully";
+                } else {
+                    res.status(400);
+                    response = "No valid fields to update";
+                }
+            } else {
+                res.status(404); // User not found
+                response = "User " + req.params("username") + " not found.";
+            }
+
+            res.body(response);
             return response;
         });
+
         get("/validate/:token", (req,res)->{
             String emailAddress = SessionValidator.emailFromToken(req.params(":token"));
             if(emailAddress.isEmpty() || emailAddress==null){
@@ -318,6 +345,106 @@ public class WebAppRunner {
             return  null;
         });
 
+        get("/pushtokentestonly/:userName", (req, res) -> {
+            String requestedUserName = req.params(":userName");
+            List<String> authorizedSenders = new ArrayList<>();
+            Optional<User> loggedInUserOptional = userFilter(req, res);
+
+            if (loggedInUserOptional.isPresent()) {
+                authorizedSenders.add("scmurdock@gmail.com");
+                authorizedSenders.add("physician@stedi.com");
+                authorizedSenders.add(loggedInUserOptional.get().getUserName());
+            } else{
+                res.status(401);
+                return "Unauthorized access.";
+            }
+
+            //physicans or admins can contact anyone
+            //anyone can contact the physican
+            if (authorizedSenders.contains(loggedInUserOptional.get().getUserName()) || requestedUserName.equals("physician@stedi.com")) {
+                User requestedUser = FindUser.getUserByUserName(requestedUserName);
+
+                if (requestedUser != null) {
+                    // Remove sensitive information
+                    requestedUser.setPassword(null);
+                    res.type("application/json");
+                    return gson.toJson(requestedUser.getExpoPushToken());
+                } else {
+                    res.status(404);
+                    return "User not found.";
+                }
+            } else {
+                res.status(403);
+                return "Unauthorized access.";
+            }
+        });
+
+        post("/simulatePushNotificationToPhysician", (req, res) -> {
+            try {
+                // Parse incoming JSON safely
+                String body = req.body();
+                java.lang.reflect.Type mapType = new com.google.gson.reflect.TypeToken<Map<String, Object>>(){}.getType();
+                Map<String, Object> requestBody = gson.fromJson(body, mapType);
+                // Check for 'data' field and ensure it's a Map
+                Object dataObj = requestBody.get("data");
+                if (!(dataObj instanceof Map)) {
+                    res.status(400);
+                    return "Missing or invalid 'data' field.";
+                }
+                Map<?,?> data = (Map<?,?>) dataObj;
+                // Check for 'username' field in data
+                Object usernameObj = data.get("username");
+                String username = usernameObj != null ? usernameObj.toString() : null;
+                if (username == null) {
+                    res.status(400);
+                    return "Missing 'username' in data field (it is case-sensitive).";
+                }
+                // Find user by username
+                User sender = FindUser.getUserByUserName(username);
+                if (sender == null) {
+                    res.status(404);
+                    return "Unable to find user with username: " + username;
+                }
+                // Check if user has an Expo push token
+                String expoPushToken = sender.getExpoPushToken();
+                if (expoPushToken == null || expoPushToken.isEmpty()) {
+                    res.status(404);
+                    return "Unable to find an Expo push token for " + username;
+                }
+                // Build message for Expo API to send a push notification back to sender
+                Map<String, Object> message = new HashMap<>();
+                message.put("to", expoPushToken);
+                message.put("sound", "default");
+                message.put("title", "Thank you for sending your data!");
+                message.put("body", "A physician has received your data and will review it shortly.");
+                String expoApiUrl = "https://exp.host/--/api/v2/push/send";
+                java.net.URI uri = java.net.URI.create(expoApiUrl);
+                java.net.URL url = uri.toURL();
+                java.net.HttpURLConnection conn = (java.net.HttpURLConnection) url.openConnection();
+                conn.setRequestMethod("POST");
+                conn.setRequestProperty("Accept", "application/json");
+                conn.setRequestProperty("Accept-encoding", "gzip, deflate");
+                conn.setRequestProperty("Content-Type", "application/json");
+                conn.setDoOutput(true);
+                String jsonMessage = gson.toJson(message);
+                try (java.io.OutputStream os = conn.getOutputStream()) {
+                    byte[] input = jsonMessage.getBytes("utf-8");
+                    os.write(input, 0, input.length);
+                }
+                int status = conn.getResponseCode();
+                java.io.InputStream is = (status < 400) ? conn.getInputStream() : conn.getErrorStream();
+                String responseBody;
+                try (java.util.Scanner s = new java.util.Scanner(is).useDelimiter("\\A")) {
+                    responseBody = s.hasNext() ? s.next() : "";
+                }
+                res.status(status);
+                return responseBody;
+            } catch (Exception e) {
+                res.status(500);
+                return "Error: " + e.getMessage();
+            }
+        });
+
         post("/login", (req, res)->loginUser(req, res));
         post("/twofactorlogin/:phoneNumber",(req, res) -> twoFactorLogin(req, res));
 
@@ -357,6 +484,24 @@ public class WebAppRunner {
             }
             return returnBody;
         });
+
+
+
+        //TO-DO: the secure implementation
+        post("/notify/:recipient",((req,res)->{
+            Optional<User> user = userFilter(req, res);//this is the user sending the notification
+            String recipientEmail = req.params(":recipient");//this should be the email address of the recipient  of the message
+            //TO-DO: look up if the recipient gave their consent to share their balance record with the user sending the notification
+            boolean userSharedWithRequestor = true;
+            if(userSharedWithRequestor){
+                User recipient = FindUser.getUserByUserName(recipientEmail);
+                /// String expoPushNotificationToken = recipient.getExpoPushNotificationToken();
+
+                //TO-DO: call the EAS endpoint and send them the message
+            }
+            res.status(200);
+            return null;
+        }));
         get("/riskscore/:customer",((req,res) -> {
             String customer = req.params(":customer");
             String returnBody = "";

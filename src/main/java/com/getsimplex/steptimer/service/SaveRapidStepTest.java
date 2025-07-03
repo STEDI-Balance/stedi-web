@@ -39,6 +39,18 @@ public class SaveRapidStepTest {
         // when they have reached the end of 60 steps, we will consider the session done
         // we will then calculate the score and save it to the database
 
+
+        ///===================================================================================================
+        // Process for enhancement
+        ///===================================================================================================
+        // Step 1: the mobile app etc. POSTs a  RapidStepTest with only a startTime, a username, and a device ID
+        // Step 2: we create a semaphore for that device ID in the database so tying the username and the device ID
+        // Step 2: the IoT device sends PATCH RapidStepTest requests with a device ID, stepTimes, and an end time
+        // Step 3: When we receive the PATCH requests we read the semaphore and determine which user has an active session with the device ID
+        // Step 4: We update the RapidStepTest with the stepTimes, and if applicable an end time
+        // Step 5: If we received an end time we delete the semaphore and subsequent device PATCH requests won't update that user's records
+        // Repeat Step 1 for the next user
+
         //TO-DO: we currently  have 2 concepts of how a user could complete a session -
 
         //(1) the user is logged into an app or a web application and the web app or device

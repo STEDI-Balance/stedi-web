@@ -20,6 +20,7 @@ public class User {
     private String  birthDate;
     private String deviceNickName;
     private String region;
+    private String expoPushToken;
 
     private boolean locked;
 
@@ -141,5 +142,12 @@ public class User {
 
     public void setRegion(String region) {
         this.region = region;
+    }
+
+    public String getExpoPushToken() {
+        return expoPushToken;
+    }
+    public void setExpoPushToken(String expoPushToken) {
+        this.expoPushToken = expoPushToken;
     }
 }
