@@ -1,24 +1,25 @@
 meta {
   name: Update User
   type: http
-  seq: 4
+  seq: 2
 }
 
 patch {
-  url: {{stediurl}}/user/marjorieabankwa@gmail.com
+  url: {{stediurl}}/user/{{sampleEmail}}
   body: json
   auth: none
 }
 
 headers {
-  suresteps.session.token: 1a0ca5c0-702f-4f7e-b140-8f48edb6ce01
+  suresteps.session.token: {{token}}
 }
 
 body:json {
-  {"customerName":"Marjorie",
-  "email":"marjorieta222@gmail.com",
-  "phone":"+1385-452-0644",
-  "whatsAppPhone":"+1385-452-0644",
-  "birthDay":"2004-10-19"
+  {
+    "customerName": "Marjorie",
+    "email": "{{sampleEmail}}",
+    "phone": "{{samplePhone}}",
+    "whatsAppPhone": "{{samplePhone}}",
+    "birthDay": "2004-10-19"
   }
 }

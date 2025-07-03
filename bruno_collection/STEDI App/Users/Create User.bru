@@ -1,7 +1,7 @@
 meta {
   name: Create User
   type: http
-  seq: 3
+  seq: 1
 }
 
 post {
@@ -12,10 +12,10 @@ post {
 
 body:json {
   {
-    "userName": "daniel@email.com",
-    "email": "daniel@email.com",
+    "userName": "{{sampleEmail}}",
+    "email": "{{sampleEmail}}",
     "password": "P@ssw0rd12",
-    "phone": "+13852367324",
+    "phone": "{{samplePhone}}",
     "birthDate": "2001-01-01",
     "verifyPassword": "P@ssw0rd12",
     "agreedToTermsOfUseDate": 1714444830351,

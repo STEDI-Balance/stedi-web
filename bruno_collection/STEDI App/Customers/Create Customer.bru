@@ -1,7 +1,7 @@
 meta {
   name: Create Customer
   type: http
-  seq: 2
+  seq: 1
 }
 
 post {
@@ -17,9 +17,9 @@ headers {
 body:json {
   {
     "customerName": "Daniel",
-    "email": "daniel@email.com",
-    "phone": "+13852367324",
-    "whatsAppPhone": "+13852367324",
+    "email": "{{sampleEmail}}",
+    "phone": "{{samplePhone}}",
+    "whatsAppPhone": "{{samplePhone}}",
     "birthDay": "2001-01-01"
   }
 }
