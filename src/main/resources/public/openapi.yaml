@@ -1,0 +1,507 @@
+openapi: 3.0.0
+info:
+  title: STEDI API
+  description: |
+    API documentation for the STEDI application
+    
+    ## Authentication
+    Most endpoints require authentication using a session token obtained from the `/login` endpoint.
+    
+    **Required Header:**
+    - `suresteps.session.token`: Session token value (UUID format)
+    
+    **Authentication Flow:**
+    1. Call `/login` with username and password to get a session token
+    2. Include the token in the `suresteps.session.token` header for authenticated requests
+    3. Use `/validate/{token}` to verify token validity
+    
+    ## Two-Factor Authentication
+    The API supports 2FA via SMS and WhatsApp:
+    - Request OTP: `/twofactorlogin/{phoneNumber}`
+    - Verify OTP: `/twofactorlogin` (POST with phoneNumber and oneTimePassword)
+  version: 1.0.0
+
+servers:
+  - url: https://dev.stedi.me/
+    description: Development server
+  - url: http://localhost:4567
+    description: Local development server
+
+components:
+  securitySchemes:
+    sessionToken:
+      type: apiKey
+      name: suresteps.session.token
+      in: header
+
+paths:
+  /login:
+    post:
+      summary: Log in to STEDI
+      description: Authenticate user and obtain a session token for subsequent API calls
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - userName
+                - password
+              properties:
+                userName:
+                  type: string
+                  format: email
+                  example: user@test.com
+                  description: User's email address
+                password:
+                  type: string
+                  example: P@ssw0rd
+                  description: User's password
+      responses:
+        '200':
+          description: Successful login
+          content:
+            application/json:
+              schema:
+                type: string
+                description: Session token (UUID format)
+                example: e16b6030-433d-4287-ac1b-df500851e8da
+        '401':
+          description: Invalid credentials
+
+  /rapidsteptest:
+    post:
+      summary: Save Steps
+      description: Save step test data including timing and step measurements
+      security:
+        - sessionToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - customer
+                - startTime
+                - stepPoints
+                - stopTime
+                - testTime
+                - totalSteps
+                - deviceId
+              properties:
+                customer:
+                  type: string
+                  format: email
+                  example: user@test.com
+                  description: Customer email address
+                startTime:
+                  type: number
+                  example: 1659538351527
+                  description: Test start time (timestamp)
+                stepPoints:
+                  type: array
+                  items:
+                    type: number
+                  example: [3615, 1165, 756, 309, 200, 172, 166, 171, 166, 172, 171, 186, 172, 180, 165, 179, 192, 172, 178, 173, 172, 180, 165, 179, 192, 172, 178, 173, 178, 180]
+                  description: Array of step measurement points
+                stopTime:
+                  type: number
+                  example: 1659538363373
+                  description: Test stop time (timestamp)
+                testTime:
+                  type: number
+                  example: 11846
+                  description: Total test duration in milliseconds
+                totalSteps:
+                  type: number
+                  example: 30
+                  description: Total number of steps recorded
+                deviceId:
+                  type: string
+                  example: "007"
+                  description: Device identifier
+      responses:
+        '200':
+          description: Steps saved successfully
+        '401':
+          description: Unauthorized - Invalid or missing session token
+
+  /riskscore/{email}:
+    get:
+      summary: Get Risk Score
+      security:
+        - sessionToken: []
+      parameters:
+        - name: email
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Risk score retrieved successfully
+
+  /stephistory/{customer}:
+    get:
+      summary: Get Step History
+      security:
+        - sessionToken: []
+      parameters:
+        - name: customer
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Step history retrieved successfully
+
+  /validate/{token}:
+    get:
+      summary: Validate Token
+      description: Validate a session token and retrieve associated email address
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          example: f4f4f3b3-1d35-488c-af13-f2fd095567cf
+          description: Session token to validate
+      responses:
+        '200':
+          description: Token validated successfully
+          content:
+            application/json:
+              schema:
+                type: string
+                description: Email address associated with the token
+        '401':
+          description: Invalid token
+
+  /twofactorlogin/{phoneNumber}:
+    post:
+      summary: Request 2FA OTP
+      description: Request a one-time password via SMS or WhatsApp
+      parameters:
+        - name: phoneNumber
+          in: path
+          required: true
+          schema:
+            type: string
+          example: "8017190908"
+          description: Phone number to send OTP to
+        - name: whatsApp
+          in: query
+          required: false
+          schema:
+            type: boolean
+            default: false
+          description: Send via WhatsApp instead of SMS
+        - name: region
+          in: query
+          required: false
+          schema:
+            type: string
+            default: "US"
+          description: Region code for WhatsApp messages
+      responses:
+        '200':
+          description: OTP sent successfully
+
+  /twofactorlogin:
+    post:
+      summary: Convert OTP to Token
+      description: Verify OTP and receive session token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - phoneNumber
+                - oneTimePassword
+              properties:
+                phoneNumber:
+                  type: string
+                  example: "8017190908"
+                  description: Phone number that received the OTP
+                oneTimePassword:
+                  type: number
+                  example: 8936
+                  description: One-time password received via SMS/WhatsApp
+      responses:
+        '200':
+          description: OTP verified successfully, session token returned
+          content:
+            application/json:
+              schema:
+                type: string
+                description: Session token (UUID format)
+        '401':
+          description: Invalid OTP or phone number
+
+  /sendtext:
+    post:
+      summary: Send WhatsApp/SMS Message
+      description: Send a text message via SMS or WhatsApp
+      security:
+        - sessionToken: []
+      parameters:
+        - name: whatsApp
+          in: query
+          required: false
+          schema:
+            type: boolean
+            default: false
+          description: Send via WhatsApp instead of SMS
+        - name: region
+          in: query
+          required: false
+          schema:
+            type: string
+            default: "US"
+          description: Region code for WhatsApp messages
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - phoneNumber
+                - message
+              properties:
+                phoneNumber:
+                  type: string
+                  example: "18017190908"
+                  description: Recipient phone number
+                message:
+                  type: string
+                  example: "10"
+                  description: Message content
+      responses:
+        '200':
+          description: Message sent successfully
+        '401':
+          description: Unauthorized - Invalid or missing session token
+
+  /user/{username}:
+    delete:
+      summary: Delete User
+      security:
+        - sessionToken: []
+      parameters:
+        - name: username
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: User deleted successfully
+    patch:
+      summary: Update User
+      description: Update user profile information including expo push token
+      security:
+        - sessionToken: []
+      parameters:
+        - name: username
+          in: path
+          required: true
+          schema:
+            type: string
+            format: email
+          example: marjorieabankwa@gmail.com
+          description: Username (email address) of user to update
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                customerName:
+                  type: string
+                  example: Marjorie
+                  description: Customer's full name
+                email:
+                  type: string
+                  format: email
+                  example: marjorieta222@gmail.com
+                  description: Updated email address
+                phone:
+                  type: string
+                  example: "+1385-452-0644"
+                  description: Updated phone number
+                whatsAppPhone:
+                  type: string
+                  example: "+1385-452-0644"
+                  description: WhatsApp phone number
+                birthDay:
+                  type: string
+                  format: date
+                  example: "2004-10-19"
+                  description: Birth date (YYYY-MM-DD)
+                expoPushToken:
+                  type: string
+                  example: samplepushtoken
+                  description: Expo push notification token
+      responses:
+        '200':
+          description: User updated successfully
+        '401':
+          description: Unauthorized - Invalid or missing session token
+        '404':
+          description: User not found
+
+  /customer/lastwalkerdate/{phoneNumber}/{days}:
+    patch:
+      summary: Update Last Walker Usage Date
+      security:
+        - sessionToken: []
+      parameters:
+        - name: phoneNumber
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: days
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Last walker date updated successfully
+
+  /customer/{phone}:
+    get:
+      summary: Get Customer by Phone Number
+      security:
+        - sessionToken: []
+      parameters:
+        - name: phone
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Customer retrieved successfully
+
+  /customer:
+    post:
+      summary: Create Customer
+      security:
+        - sessionToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                customerName:
+                  type: string
+                email:
+                  type: string
+                phone:
+                  type: string
+                birthDay:
+                  type: string
+      responses:
+        '200':
+          description: Customer created successfully
+
+  /user:
+    post:
+      summary: Create User
+      description: Register a new user account
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - userName
+                - email
+                - password
+                - phone
+                - birthDate
+                - verifyPassword
+                - agreedToTermsOfUseDate
+                - agreedToCookiePolicyDate
+                - agreedToPrivacyPolicyDate
+                - agreedToTextMessageDate
+              properties:
+                userName:
+                  type: string
+                  format: email
+                  example: sammy.johnson@gmail.com
+                  description: Username (typically email address)
+                email:
+                  type: string
+                  format: email
+                  example: sammy.johnson@gmail.com
+                  description: User's email address
+                password:
+                  type: string
+                  example: P@ssw0rd12
+                  description: User's password
+                phone:
+                  type: string
+                  example: "8017551212"
+                  description: User's phone number
+                birthDate:
+                  type: string
+                  format: date
+                  example: "2001-01-01"
+                  description: User's birth date (YYYY-MM-DD)
+                verifyPassword:
+                  type: string
+                  example: P@ssw0rd12
+                  description: Password confirmation (must match password)
+                agreedToTermsOfUseDate:
+                  type: number
+                  example: 1714444830351
+                  description: Timestamp when user agreed to terms of use
+                agreedToCookiePolicyDate:
+                  type: number
+                  example: 1714444830351
+                  description: Timestamp when user agreed to cookie policy
+                agreedToPrivacyPolicyDate:
+                  type: number
+                  example: 1714444830351
+                  description: Timestamp when user agreed to privacy policy
+                agreedToTextMessageDate:
+                  type: number
+                  example: 1714444830351
+                  description: Timestamp when user agreed to text messages
+      responses:
+        '200':
+          description: User created successfully
+        '400':
+          description: Invalid input data
+        '409':
+          description: User already exists
+
+  /pushtokentestonly/{userName}:
+    get:
+      summary: Get Push Token
+      security:
+        - sessionToken: []
+      parameters:
+        - name: userName
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Push token retrieved successfully
