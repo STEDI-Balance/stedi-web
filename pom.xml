@@ -101,7 +101,7 @@
         </dependency>
 
     </dependencies>
-    <repositories>
+    <!-- <repositories>
         <repository>
             <id>manusant-beerRepo</id>
             <url>https://packagecloud.io/manusant/beerRepo/maven2</url>
@@ -112,7 +112,7 @@
                 <enabled>true</enabled>
             </snapshots>
         </repository>
-    </repositories>
+    </repositories> -->
     <build>
         <plugins>
             <plugin>

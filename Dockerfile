@@ -4,7 +4,7 @@ WORKDIR /opt/stedi
 
 COPY . ./
 
-RUN mvn clean package --quiet
+RUN mvn clean package
 
 FROM adoptopenjdk/openjdk14
 
