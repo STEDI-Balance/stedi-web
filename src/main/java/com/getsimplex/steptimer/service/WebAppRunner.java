@@ -464,6 +464,106 @@ public class WebAppRunner {
             return returnBody;
         }));
 
+        get("consent/:customer", ((req, res) -> {
+            try {
+                String customer = req.params(":customer");
+                Optional<User> user = userFilter(req, res);
+                if (user.isEmpty()) {
+                    res.status(401); // Unauthorized
+                    return "Unauthorized access.";
+                } else if (user.get().getEmail().equals(customer)) { // check if the user is the same as the customer
+                    boolean consentToShareData = user.get().isConsentToShareData();
+                    res.type("application/json");
+                    res.body(gson.toJson(consentToShareData));
+                    return gson.toJson(consentToShareData);
+                } else {
+                    res.status(403); // Forbidden
+                    return "You are not authorized to view this customer's consent.";
+                }
+            } catch (Exception e) {
+                logger.warning("*** Error retrieving consent for customer: " + req.params(":customer") + " " + e.getMessage());
+                System.out.println("*** Error retrieving consent: " + e.getMessage());
+                res.status(500);
+                return "Error retrieving consent.";
+            }
+        }));
+
+        patch("/consent/:customer", ((req, res) -> {
+            try {
+                String customer = req.params(":customer");
+                Optional<User> user = userFilter(req, res);
+                boolean consentToShareData = Boolean.parseBoolean(req.body());
+                if (user.isEmpty()) {
+                    res.status(401); // Unauthorized
+                    return "Unauthorized access.";
+                } else if (user.get().getEmail().equals(customer)) { // check if the user is the same as the customer
+                    user.get().setConsentToShareData(consentToShareData);
+                    JedisData.updateRedisMap(user.get(), customer);
+                    res.status(200); // OK
+                    return "Consent updated successfully.";
+                } else {
+                    res.status(403); // Forbidden
+                    return "You are not authorized to update this customer's consent.";
+                }
+            } catch (Exception e) {
+                logger.warning("*** Error updating consent for customer: " + req.params(":customer") + " " + e.getMessage());
+                System.out.println("*** Error updating consent: " + e.getMessage());
+                res.status(500);
+                return "Error updating consent.";
+            }
+        }));
+
+        get("/consentedClinicians/:customer",((req,res) -> {
+            try {
+                String customer = req.params(":customer");
+                Optional<User> user = userFilter(req, res);
+                if (user.isEmpty()) {
+                    res.status(401); // Unauthorized
+                    return "Unauthorized access.";
+                } else if (user.get().getEmail().equals(customer)) { // check if the user is the same as the customer
+                    List<User.UserConsent> userConsents = user.get().getConsentedClinicians();
+                    res.type("application/json");
+                    res.body(gson.toJson(userConsents));
+                    return gson.toJson(userConsents);
+                } else {
+                    res.status(403); // Forbidden
+                    return "You are not authorized to view this customer's consented clinicians.";
+                }
+            } catch (Exception e) {
+                logger.warning("*** Error retrieving consented clinicians for customer: " + req.params(":customer") + " " + e.getMessage());
+                System.out.println("*** Error retrieving consented clinicians: " + e.getMessage());
+                res.status(500);
+                return "Error retrieving consented clinicians.";
+            }
+        }));
+
+        patch("/consentedClinicians/:customer",((req,res) -> {
+            try {
+                String customer = req.params(":customer");
+                Optional<User> user = userFilter(req, res);
+                String clinicianUsername = req.body();
+                if (user.isEmpty()) {
+                    res.status(401); // Unauthorized
+                    return "Unauthorized access.";
+                } else if (user.get().getEmail().equals(customer)) { // check if the user is the same as the customer
+                    user.get().addConsentedClinician(clinicianUsername);
+                    JedisData.updateRedisMap(user.get(), customer);
+                    res.status(200); // OK
+                    return "Clinician consent updated successfully.";
+                } else {
+                    res.status(403); // Forbidden
+                    return "You are not authorized to update this customer's clinician consent.";
+                }
+            } catch (Exception e) {
+                logger.warning("*** Error updating clinician consent for customer: " + req.params(":customer") + " " + e.getMessage());
+                System.out.println("*** Error updating clinician consent: " + e.getMessage());
+                res.status(500);
+                return "Error updating clinician consent.";
+            }
+        }));
+
+
+
         options("/*",
                 (request, response) -> {
 

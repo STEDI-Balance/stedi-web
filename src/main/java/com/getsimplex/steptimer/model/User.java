@@ -3,6 +3,10 @@
 package com.getsimplex.steptimer.model;
 
 import javax.crypto.SecretKey;
+
+import java.lang.reflect.Array;
+import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
 
@@ -17,7 +21,7 @@ public class User {
     private String email;
     private String phone;
     private String whatsAppPhone;
-    private String  birthDate;
+    private String birthDate;
     private String deviceNickName;
     private String region;
     private String expoPushToken;
@@ -26,10 +30,16 @@ public class User {
 
     private long agreedToTextMessageDate;
     private long agreedToPrivacyPolicyDate;
-
     private long agreedToCookiePolicyDate;
-
     private long agreedToTermsOfUseDate;
+
+    // User data share consent attributes
+    private boolean consentToShareData;
+    public class UserConsent {
+        public String clinicianUsername;
+        public Date consentExpirationDate;
+    }
+    private ArrayList<UserConsent> consentedClinicians;
 
 
     public String getPassword() {
@@ -149,5 +159,28 @@ public class User {
     }
     public void setExpoPushToken(String expoPushToken) {
         this.expoPushToken = expoPushToken;
+    }
+
+    // Consent to share data with clinicians
+    public boolean isConsentToShareData() {
+        return consentToShareData;
+    }
+    public void setConsentToShareData(boolean consentToShareData) {
+        this.consentToShareData = consentToShareData;
+    }
+    public ArrayList<UserConsent> getConsentedClinicians() {
+        return consentedClinicians;
+    }
+    public void addConsentedClinician(String clinicianUsername) {
+        if (consentedClinicians == null) consentedClinicians = new ArrayList<>();
+        UserConsent consent = new UserConsent();
+        consent.clinicianUsername = clinicianUsername;
+        // Set the consent expiration date to a year from now
+        consent.consentExpirationDate = Date.from(
+            LocalDate.now().plusYears(1).atStartOfDay()
+                .atZone(Calendar.getInstance().getTimeZone().toZoneId())
+                .toInstant()
+        );
+        consentedClinicians.add(consent);
     }
 }
