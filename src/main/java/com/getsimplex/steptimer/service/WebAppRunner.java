@@ -472,10 +472,7 @@ public class WebAppRunner {
                     res.status(401); // Unauthorized
                     return "Unauthorized access.";
                 } else if (user.get().getEmail().equals(customer)) { // check if the user is the same as the customer
-                    boolean consentToShareData = user.get().isConsentToShareData();
-                    res.type("application/json");
-                    res.body(gson.toJson(consentToShareData));
-                    return gson.toJson(consentToShareData);
+                    return user.get().isConsentToShareData();
                 } else {
                     res.status(403); // Forbidden
                     return "You are not authorized to view this customer's consent.";
