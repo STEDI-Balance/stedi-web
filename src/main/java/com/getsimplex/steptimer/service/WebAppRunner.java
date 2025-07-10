@@ -78,7 +78,7 @@ public class WebAppRunner {
         });
 		//secure("/Applications/steptimerwebsocket/keystore.jks","password","/Applications/steptimerwebsocket/keystore.jks","password");
 
-        //post("/sensorUpdates", (req, res)-> WebServiceHandler.routeDeviceRequest(req));
+        post("/sensorUpdates", (req, res)-> WebServiceHandler.routeDeviceRequest(req));
         //post("/generateHistoricalGraph", (req, res)->routePdfRequest(req, res));
         //get("/readPdf", (req, res)->routePdfRequest(req, res));
         post("/user", (req, res)-> {
