@@ -514,7 +514,7 @@ public class WebAppRunner {
                     res.status(404);
                     returnBody= "Unable to locate customer for risk score: "+customer;
                 }
-            } catch (Exception e){
+            } catch (Throwable e){
                 logger.info("*** Issue Finding Risk Score for: "+customer+ " "+e.getMessage());
                 System.out.println("*** Issue Finding Risk Score: "+e.getMessage());
                 if(e instanceof NotFoundException){

@@ -3,7 +3,6 @@
 package com.getsimplex.steptimer.service;
 
 import com.getsimplex.steptimer.model.Customer;
-import com.getsimplex.steptimer.model.User;
 import com.getsimplex.steptimer.utils.AlreadyExistsException;
 import com.getsimplex.steptimer.utils.JedisClient;
 import com.getsimplex.steptimer.utils.JedisData;
@@ -76,8 +75,8 @@ public class CustomerService {
         return "Welcome: " + newCustomer.getCustomerName();
     }
 
-    public static Optional<Customer> findCustomerByEmail(String customerEmail) throws Exception{
-        Optional<Customer> matchingCustomer = JedisData.getEntityById(Customer.class, customerEmail);
+    public static Optional<Customer> findCustomerByPhone(String customerPhone) throws Exception{
+        Optional<Customer> matchingCustomer = JedisData.getEntityById(Customer.class, customerPhone);
         return matchingCustomer;
     }
 
