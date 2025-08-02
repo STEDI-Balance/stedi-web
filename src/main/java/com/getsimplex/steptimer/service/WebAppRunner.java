@@ -464,6 +464,26 @@ public class WebAppRunner {
            }
             return response;
         });
+
+        post("/birthdateverify/:phoneNumber", (req, res) -> {
+            String response = "";
+            try {
+                String phoneNumber = req.params(":phoneNumber");
+                response = BirthDateVerificationService.handleRequest(req, phoneNumber);
+                res.status(200);
+            } catch (NotFoundException nfe) {
+                res.status(404);
+                response = nfe.getMessage();
+            } catch (IllegalArgumentException iae) {
+                res.status(400);
+                response = iae.getMessage();
+            } catch (Exception e) {
+                res.status(500);
+                response = "Unexpected error: " + e.getMessage();
+                logger.severe("Error in birth date verification: " + e.getMessage());
+            }
+            return response;
+        });
         post("/rapidsteptest", (req, res)->{
             String returnBody="";
             try{
