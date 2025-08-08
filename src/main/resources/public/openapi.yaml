@@ -140,16 +140,30 @@ paths:
               type: object
               required:
                 - deviceId
-                - message
+                - sensorType
+                - distance
+                - timestamp
               properties:
                 deviceId:
                   type: string
                   example: "007"
                   description: Unique identifier for the device sending the sensor data
+                sensorType:
+                  type: string
+                  example: "ultraSonicSensor"
+                  description: Type of sensor providing the data (e.g., ultraSonicSensor, accelerometer, gyroscope)
+                distance:
+                  type: string
+                  example: "1cm"
+                  description: Distance measurement from ultrasonic sensor
+                timestamp:
+                  type: number
+                  example: 1659538351527
+                  description: Timestamp when the sensor reading was captured (Unix timestamp in milliseconds)
                 message:
                   type: string
-                  example: '{"sensorType":"accelerometer","x":0.1,"y":0.2,"z":9.8,"timestamp":1659538351527}'
-                  description: JSON formatted sensor data message containing sensor readings and metadata
+                  example: "Test Completed"
+                  description: Unstructured message or status text from the device
                 messageOrigin:
                   type: string
                   example: "DEVICE"
