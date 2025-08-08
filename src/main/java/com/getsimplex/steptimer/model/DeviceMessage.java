@@ -15,12 +15,40 @@ public class DeviceMessage {
     private Session session;
     private String deviceId;
     private long date;
+    private String sensorType;
+    private String distance;
+    private long timestamp;
+
     public long getDate() {
         return date;
     }
 
     public void setDate(long date) {
         this.date = date;
+    }
+
+    public String getSensorType() {
+        return sensorType;
+    }
+
+    public void setSensorType(String sensorType) {
+        this.sensorType = sensorType;
+    }
+
+    public String getDistance() {
+        return distance;
+    }
+
+    public void setDistance(String distance) {
+        this.distance = distance;
+    }
+
+    public long getTimestamp() {
+        return timestamp;
+    }
+
+    public void setTimestamp(long timestamp) {
+        this.timestamp = timestamp;
     }
 
 
