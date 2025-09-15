@@ -6,6 +6,7 @@ let whatsAppPhone="";
 let bday = "";
 let form = "";
 let elements = "";
+let deviceNickName = "";
 
 
 const checkBoxListener = ()=>{
@@ -46,6 +47,10 @@ function setemail(){
 function setphone(){
     phone = $("#phone").val().replace(/\D+/g, "");
     whatsAppPhone = phone;
+}
+
+function setDeviceNickName(){
+    deviceNickName = $("#deviceNickName").val();
 }
 
 
@@ -106,6 +111,7 @@ function createcustomer() {
     setcustomername();
     setemail();
     setphone();
+    setDeviceNickName();
     setbday();
     setregion();
 
@@ -118,6 +124,7 @@ function createcustomer() {
             email,
             password,
             phone,
+            deviceNickName,
             birthDate: bday,
             verifyPassword,
             agreedToTermsOfUseDate: new Date().getTime(),

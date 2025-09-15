@@ -450,6 +450,10 @@ paths:
                   format: date
                   example: "2004-10-19"
                   description: Birth date (YYYY-MM-DD)
+                deviceNickName:
+                  type: string
+                  example: "spotter-5.stedi.local"
+                  description: Optional nickname for the user's device
                 expoPushToken:
                   type: string
                   example: samplepushtoken
@@ -600,6 +604,10 @@ paths:
                   type: string
                   example: "8017551212"
                   description: User's phone number
+                deviceNickName:
+                  type: string
+                  example: "spotter-5.stedi.local"
+                  description: Optional nickname for the user's device used during signup
                 birthDate:
                   type: string
                   format: date
