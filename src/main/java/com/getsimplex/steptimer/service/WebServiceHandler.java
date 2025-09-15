@@ -32,6 +32,7 @@ public class WebServiceHandler {
 
     public static String routeDeviceRequest(Request request) throws Exception{
         DeviceMessage deviceMessage = gson.fromJson(request.body(), DeviceMessage.class);
+        
         try {
             MessageIntake.route(deviceMessage);
         } catch (Exception e) {
