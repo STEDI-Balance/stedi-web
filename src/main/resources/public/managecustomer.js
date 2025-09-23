@@ -6,6 +6,7 @@ let whatsAppPhone="";
 let bday = "";
 let form = "";
 let elements = "";
+let deviceNickName = "";
 
 
 const checkBoxListener = ()=>{
@@ -55,6 +56,10 @@ function setbday(){
 
 function setregion() {
     region = $("#countryCode").val();
+}
+
+function setDeviceNickName(){
+    deviceNickName = $("#deviceNickName").val();
 }
 
 function readonlyforms(formid){
@@ -108,6 +113,7 @@ function createcustomer() {
     setphone();
     setbday();
     setregion();
+    setDeviceNickName();
 
     // This is the more picky of the two operations, so let's try it first, and if it succeeds, create the customer, not vice versa
     $.ajax({
@@ -118,6 +124,7 @@ function createcustomer() {
             email,
             password,
             phone,
+            deviceNickName,
             birthDate: bday,
             verifyPassword,
             agreedToTermsOfUseDate: new Date().getTime(),

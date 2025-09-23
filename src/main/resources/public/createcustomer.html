@@ -173,6 +173,11 @@
         <input class="stepcount" type="text" id="verifypassword" name="verifypassword" size="25" onchange="setverifypassword()" required>
     </p>
     <p>
+        <label class="stepcount" for="deviceNickName">Device Nickname (optional):</label><br>
+        <input class="stepcount" type="text" id="deviceNickName" name="deviceNickName" size="40" placeholder="e.g. spotter-7.stedi.local" onchange="setDeviceNickName()">
+        <small class="stepcount">Used to fetch your device's recent updates.</small>
+    </p>
+    <p>
         <input type="checkbox" id="textMessageCheckBox"/>
         <label class="stepcount" for="textMessageCheckBox"><span>*</span> I consent to receiving text messages at the cell number I provided (reply STOP to opt out) </label><br>
     </p>
