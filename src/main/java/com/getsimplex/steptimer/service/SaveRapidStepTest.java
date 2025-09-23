@@ -28,6 +28,11 @@ public class SaveRapidStepTest {
         RapidStepTest rapidStepTest = gson.fromJson(rapidStepTestString, RapidStepTest.class);
         User user = FindUser.getUserByUserName(rapidStepTest.getCustomer());//we are assuming the user is testing their own risk
 
+        if (rapidStepTest.getDeviceId()==null || rapidStepTest.getDeviceId().isEmpty()){
+            // if the device ID is not set, we will set it to the user's default device nickname
+            rapidStepTest.setDeviceId(user.getDeviceNickName());
+        }   
+
         rapidStepTestRepository.addToArrayAtKey(user.getPhone(),rapidStepTest);
         // The above adds the data to a redis key called RapidStepTests which is a JSON object with the key being the customer phone number:
         // - the array for each phone number contains all the rapid step tests for the customer
@@ -41,11 +46,11 @@ public class SaveRapidStepTest {
 
 
         ///===================================================================================================
-        // Process for enhancement
+        // Process for enhancement (once we have the ability to process steps based on sensor data)
         ///===================================================================================================
         // Step 1: the mobile app etc. POSTs a  RapidStepTest with only a startTime, a username, and a device ID
         // Step 2: we create a semaphore for that device ID in the database so tying the username and the device ID
-        // Step 2: the IoT device sends PATCH RapidStepTest requests with a device ID, stepTimes, and an end time
+        // Step 2: the IoT device sends SensorUpdate POST requests with a device ID, stepTimes, and an end time
         // Step 3: When we receive the PATCH requests we read the semaphore and determine which user has an active session with the device ID
         // Step 4: We update the RapidStepTest with the stepTimes, and if applicable an end time
         // Step 5: If we received an end time we delete the semaphore and subsequent device PATCH requests won't update that user's records

@@ -193,6 +193,44 @@ public class WebAppRunner {
                 return "Recipient doesn't match user or user not found: Text not sent";
             }
         });
+                // Return recent device updates for the authenticated user's device
+                // Query param: seconds (optional, default 60)
+                get("/devices/updates/recent", (req, res) -> {
+                    Optional<User> loggedInUser = userFilter(req, res);
+                    if (loggedInUser.isEmpty()){
+                        res.status(401);
+                        return "Unauthorized";
+                    }
+
+                    String deviceId = loggedInUser.get().getDeviceNickName();
+                    if (deviceId == null || deviceId.isEmpty()){
+                        res.status(400);
+                        return "User does not have a deviceNickName configured";
+                    }
+
+                    String secondsParam = req.queryParams("seconds");
+                    long seconds;
+                    try {
+                        seconds = (secondsParam != null) ? Long.parseLong(secondsParam) : 60L;
+                    } catch (NumberFormatException nfe){
+                        res.status(400);
+                        return "Invalid seconds parameter";
+                    }
+
+                    long now = System.currentTimeMillis();
+                    long from = now - (seconds * 1000L);
+
+                    List<DeviceMessage> recent;
+                    try {
+                        recent = JedisData.getEntitiesByIndexAndScore(DeviceMessage.class, "DeviceId", deviceId, from, now);
+                    } catch (Exception e){
+                        res.status(500);
+                        return "Error querying recent device updates";
+                    }
+
+                    res.type("application/json");
+                    return gson.toJson(recent);
+                });
         get("/simulation", (req, res) -> SimulationDataDriver.getSimulationActive());
         post("/simulation", (req, res)-> MessageIntake.route(new StartSimulation(30)));
         delete("/simulation", (req, res)-> MessageIntake.route(new StopSimulation()));

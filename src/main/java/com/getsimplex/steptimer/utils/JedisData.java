@@ -98,6 +98,22 @@ public class JedisData {
         return arrayList;
     }
 
+    public static <T> ArrayList<T> getEntitiesByIndexAndScore(Class clazz, String indexName, String index, long beginScore, long endScore) throws Exception{
+        List<String> set = JedisClient.zrangeByScore(clazz.getSimpleName()+"By"+indexName+"-"+index, beginScore, endScore);
+        ArrayList<T> arrayList = new ArrayList<T>();
+
+        for (String key : set) {
+            Optional<String> mapValueOptional = JedisClient.hmget(clazz.getSimpleName()+"Map", key);
+            if (mapValueOptional.isEmpty()){
+                throw new Exception("Map "+clazz.getSimpleName()+" and Key: "+key+" is empty: should contain a JSON object.");
+            } else{
+                arrayList.add((T) gson.fromJson(mapValueOptional.get(), clazz));
+            }
+        }
+
+        return arrayList;
+    }
+
 
     public static synchronized <T> void update(T object, String key) throws Exception{
         JedisClient.hmset(object.getClass().getSimpleName()+"Map", key, gson.toJson(object));
@@ -171,6 +187,18 @@ public class JedisData {
             throw (e);
         }
 
+    }
+
+    public static <T> void loadToJedisWithIndexUsingScore(T record, String id, long score, String indexName, String index) throws Exception{
+        try {
+            String jsonFormatted = gson.toJson(record,record.getClass());
+            String className = record.getClass().getSimpleName();
+            JedisClient.hmset(className+"Map", id, jsonFormatted);
+            JedisClient.zadd(className, score, id);
+            JedisClient.zadd(className+"By"+indexName+"-"+index, score, id);
+        } catch (Exception e) {
+            throw (e);
+        }
     }
 
     public static <T> Long deleteFromRedis(List<T> list) throws Exception{

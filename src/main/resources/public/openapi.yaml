@@ -33,6 +33,36 @@ components:
       type: apiKey
       name: suresteps.session.token
       in: header
+  schemas:
+    DeviceMessage:
+      type: object
+      properties:
+        messageOrigin:
+          type: string
+          example: DEVICE
+        sessionKey:
+          type: string
+          nullable: true
+        message:
+          type: string
+          example: "Sample update from spotter-7"
+        deviceId:
+          type: string
+          example: spotter-7.stedi.local
+        date:
+          type: number
+          format: int64
+          example: 1659538351527
+        sensorType:
+          type: string
+          example: ultraSonicSensor
+        distance:
+          type: string
+          example: 1cm
+        timestamp:
+          type: number
+          format: int64
+          example: 1659538351527
 
 paths:
   /login:
@@ -184,6 +214,39 @@ paths:
           description: Invalid sensor data format or missing required fields
         '500':
           description: Internal server error processing sensor data
+
+  /devices/updates/recent:
+    get:
+      summary: Get recent updates for the caller's device
+      description: |
+        Returns sensor updates for the authenticated user's device in the last N seconds.
+        The user's device is inferred from their `deviceNickName` profile field.
+      security:
+        - sessionToken: []
+      parameters:
+        - name: seconds
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 60
+            minimum: 1
+          description: Time window in seconds to look back for updates
+      responses:
+        '200':
+          description: Recent device updates returned
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/DeviceMessage'
+        '400':
+          description: Missing device nickname or invalid parameter
+        '401':
+          description: Unauthorized - Invalid or missing session token
+        '500':
+          description: Error querying recent device updates
 
   /riskscore/{email}:
     get:
