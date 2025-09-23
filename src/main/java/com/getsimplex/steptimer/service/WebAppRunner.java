@@ -134,6 +134,12 @@ public class WebAppRunner {
                     updated = true;
                 }
 
+                // Update deviceNickName if provided
+                if (userUpdate.getDeviceNickName() != null) {
+                    existingUser.setDeviceNickName(userUpdate.getDeviceNickName());
+                    updated = true;
+                }
+
                 if (updated) {
                     JedisData.updateRedisMap(existingUser, existingUser.getUserName());
                     res.status(200);
