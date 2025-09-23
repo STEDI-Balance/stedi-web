@@ -517,6 +517,10 @@ paths:
                   type: string
                   example: samplepushtoken
                   description: Expo push notification token
+                deviceNickName:
+                  type: string
+                  example: spotter-7.stedi.local
+                  description: Device nickname (used to link device updates)
       responses:
         '200':
           description: User updated successfully
