@@ -140,6 +140,32 @@ public class WebAppRunner {
                     updated = true;
                 }
 
+                // Update agreement dates if provided
+                if (userUpdate.getAgreedToTermsOfUseDate() != 0) {
+                    existingUser.setAgreedToTermsOfUseDate(userUpdate.getAgreedToTermsOfUseDate());
+                    updated = true;
+                }
+
+                if (userUpdate.getAgreedToPrivacyPolicyDate() != 0) {
+                    existingUser.setAgreedToPrivacyPolicyDate(userUpdate.getAgreedToPrivacyPolicyDate());
+                    updated = true;
+                }
+
+                if (userUpdate.getAgreedToCookiePolicyDate() != 0) {
+                    existingUser.setAgreedToCookiePolicyDate(userUpdate.getAgreedToCookiePolicyDate());
+                    updated = true;
+                }
+
+                if (userUpdate.getAgreedToTextMessageDate() != 0) {
+                    existingUser.setAgreedToTextMessageDate(userUpdate.getAgreedToTextMessageDate());
+                    updated = true;
+                }
+
+                if (userUpdate.getAgreedToShareAnonymousData() != 0) {
+                    existingUser.setAgreedToShareAnonymousData(userUpdate.getAgreedToShareAnonymousData());
+                    updated = true;
+                }
+
                 if (updated) {
                     JedisData.updateRedisMap(existingUser, existingUser.getUserName());
                     res.status(200);

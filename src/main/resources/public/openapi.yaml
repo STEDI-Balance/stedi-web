@@ -64,6 +64,128 @@ components:
           format: int64
           example: 1659538351527
 
+    User:
+      type: object
+      properties:
+        userName:
+          type: string
+          format: email
+          example: user@example.com
+          description: User's email address (used as username)
+        password:
+          type: string
+          description: User's password (only used for input, never returned)
+        phone:
+          type: string
+          example: "+18017190908"
+          description: User's phone number in international format
+        whatsAppPhone:
+          type: string
+          example: "+18017190908"
+          description: User's WhatsApp phone number
+        email:
+          type: string
+          format: email
+          example: user@example.com
+          description: User's email address
+        birthDay:
+          type: string
+          example: "08151990"
+          description: User's birth date in MMDDYYYY format
+        gender:
+          type: string
+          example: "M"
+          description: User's gender
+        region:
+          type: string
+          example: "US"
+          description: User's region code
+        expoPushToken:
+          type: string
+          example: "ExponentPushToken[abc123]"
+          description: Expo push notification token for mobile app
+        deviceNickName:
+          type: string
+          example: "MyDevice"
+          description: Nickname for user's device
+        agreedToTermsOfUseDate:
+          type: number
+          format: int64
+          example: 1659538351527
+          description: Timestamp when user agreed to terms of use
+        agreedToPrivacyPolicyDate:
+          type: number
+          format: int64
+          example: 1659538351527
+          description: Timestamp when user agreed to privacy policy
+        agreedToCookiePolicyDate:
+          type: number
+          format: int64
+          example: 1659538351527
+          description: Timestamp when user agreed to cookie policy
+        agreedToTextMessageDate:
+          type: number
+          format: int64
+          example: 1659538351527
+          description: Timestamp when user agreed to receive text messages
+        agreedToShareAnonymousData:
+          type: number
+          format: int64
+          example: 1659538351527
+          description: Timestamp when user agreed to share anonymous data for research purposes
+        locked:
+          type: boolean
+          example: false
+          description: Whether the user account is locked
+
+    Customer:
+      type: object
+      properties:
+        customerName:
+          type: string
+          example: "John Doe"
+          description: Customer's full name
+        email:
+          type: string
+          format: email
+          example: "customer@example.com"
+          description: Customer's email address
+        phone:
+          type: string
+          example: "+18017190908"
+          description: Customer's phone number in international format
+        whatsAppPhone:
+          type: string
+          example: "+18017190908"
+          description: Customer's WhatsApp phone number
+        birthDay:
+          type: string
+          example: "08151990"
+          description: Customer's birth date in MMDDYYYY format
+        region:
+          type: string
+          example: "US"
+          description: Customer's region code
+        weight:
+          type: number
+          format: int64
+          example: 150
+          description: Customer's weight (in pounds or kilograms)
+        height:
+          type: number
+          format: int64
+          example: 70
+          description: Customer's height (in inches or centimeters)
+        lastWalkerDate:
+          type: string
+          format: date-time
+          example: "2023-08-15T10:30:00Z"
+          description: Date of customer's last walker usage
+        gender:
+          type: string
+          example: "M"
+          description: Customer's gender
+
 paths:
   /login:
     post:

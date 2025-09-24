@@ -31,6 +31,7 @@ public class User {
 
     private long agreedToTermsOfUseDate;
 
+    private long agreedToShareAnonymousData;
 
     public String getPassword() {
         return password;
@@ -134,6 +135,14 @@ public class User {
 
     public void setAgreedToTextMessageDate(long agreedToTextMessageDate) {
         this.agreedToTextMessageDate = agreedToTextMessageDate;
+    }
+
+    public long getAgreedToShareAnonymousData() {
+        return agreedToShareAnonymousData;
+    }
+
+    public void setAgreedToShareAnonymousData(long agreedToShareAnonymousData) {
+        this.agreedToShareAnonymousData = agreedToShareAnonymousData;
     }
 
     public String getRegion() {

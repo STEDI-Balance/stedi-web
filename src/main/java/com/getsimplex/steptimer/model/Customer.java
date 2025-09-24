@@ -15,6 +15,9 @@ public class Customer {
     private String whatsAppPhone;
     private String birthDay;
     private String region;
+    private long weight;
+    private long height;
+
 
 
     private Date lastWalkerDate;
@@ -79,6 +82,22 @@ public class Customer {
 
     public void setRegion(String region) {
         this.region = region;
+    }
+
+    public long getWeight() {
+        return weight;
+    }
+
+    public void setWeight(long weight) {
+        this.weight = weight;
+    }
+
+    public long getHeight() {
+        return height;
+    }
+
+    public void setHeight(long height) {
+        this.height = height;
     }
 
 }

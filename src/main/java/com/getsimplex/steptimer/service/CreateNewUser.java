@@ -104,6 +104,7 @@ public class CreateNewUser {
         addUser.setAgreedToCookiePolicyDate(createUser.getAgreedToCookiePolicyDate());
         addUser.setAgreedToPrivacyPolicyDate(createUser.getAgreedToPrivacyPolicyDate());
         addUser.setAgreedToTextMessageDate(createUser.getAgreedToTextMessageDate());
+        addUser.setAgreedToShareAnonymousData(createUser.getAgreedToShareAnonymousData());
 
 
 
