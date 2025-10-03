@@ -385,20 +385,37 @@ paths:
         '200':
           description: Risk score retrieved successfully
 
-  /stephistory/{customer}:
+  /stephistory/{email}:
     get:
       summary: Get Step History
+      description: Get step test history for the authenticated user by email address
       security:
         - sessionToken: []
       parameters:
-        - name: customer
+        - name: email
           in: path
           required: true
           schema:
             type: string
+            format: email
+          description: Customer email address
       responses:
         '200':
           description: Step history retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/RapidStepTest'
+        '400':
+          description: Bad request or invalid parameters
+        '401':
+          description: Unauthorized - Invalid or missing session token
+        '404':
+          description: Customer not found or access denied
+        '412':
+          description: Precondition failed
 
   /validate/{token}:
     get:

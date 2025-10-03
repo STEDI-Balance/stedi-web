@@ -298,15 +298,31 @@ public class WebAppRunner {
             }
         });
         get ("/stephistory/:customer", (req, res)-> {
-            res.type("application/json");
+            String customer = req.params(":customer");
+            String returnBody = "";
             try{
-                userFilter(req, res);
-            } catch (Exception e){
-                res.redirect("/");
+                Optional<User> user = userFilter(req, res);
+
+                if (user.isPresent() && user.get().getEmail().equals(customer)) {
+                    returnBody = StepHistory.getAllTestsByEmail(req.params(":customer"));
+                } else{
+                    res.status(404);
+                    returnBody = "Unable to locate customer for step history: " + customer;
+                }
+            } catch (Throwable e){
+                logger.info("*** Issue Finding Step History for: " + customer + " " + e.getMessage());
+                System.out.println("*** Issue Finding Step History: " + e.getMessage());
+                if(e instanceof NotFoundException){
+                    ErrorPayload errorPayload = new ErrorPayload(e.getMessage());
+                    returnBody = gson.toJson(errorPayload);
+                    res.status(412);//precondition failed
+                } else{
+                    res.status(400);
+                }
             }
-            String allTests = StepHistory.getAllTests(req.params(":customer"));
-            res.body(allTests);
-            return allTests;
+            res.type("application/json");
+            res.body(returnBody);
+            return returnBody;
         });
         post("/customer", (req, res)-> {
             userFilter(req,res);//new users receive a login token before their customer profile is created, so we filter this request
