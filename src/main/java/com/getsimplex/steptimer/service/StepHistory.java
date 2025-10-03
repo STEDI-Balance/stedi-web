@@ -4,6 +4,7 @@ package com.getsimplex.steptimer.service;
 
 import com.getsimplex.steptimer.datarepository.RapidStepTestRepository;
 import com.getsimplex.steptimer.model.*;
+import com.getsimplex.steptimer.utils.SendText;
 import com.google.gson.Gson;
 import com.getsimplex.steptimer.utils.GsonFactory;
 import com.getsimplex.steptimer.utils.JedisData;
@@ -25,12 +26,24 @@ public class StepHistory {
     private static RapidStepTestRepository rapidStepTestRepository = new RapidStepTestRepository();
 
 
+    public static String getAllTestsByEmail(String email) throws Exception{
+        logger.info("Received getAllTests request for email: " + email);
+        logger.info("Step 1: Starting step history retrieval for email: " + email);
+        
+        logger.info("Step 2: Attempting to find user by email: " + email);
+        User user = FindUser.getUserByUserName(email);
 
-
-    public static String getAllTests(String phoneNumber) throws Exception{
-        //List<RapidStepTest> rapidStepTests = JedisData.getEntitiesByIndex(RapidStepTest.class, "CustomerId",email);
-        List<RapidStepTest> rapidStepTests = rapidStepTestRepository.getArrayAtKey(phoneNumber);
-        return (gson.toJson(rapidStepTests));
+        if (user != null) {
+            logger.info("Step 3: User found successfully. Phone: " + user.getPhone());
+            String standardizedPhone = SendText.getFormattedPhone(user.getPhone(), user.getRegion());
+            logger.info("Step 4: Retrieving rapid step tests for phone: " + standardizedPhone);
+            List<RapidStepTest> rapidStepTests = rapidStepTestRepository.getArrayAtKey(standardizedPhone);
+            logger.info("Step 5: Retrieved " + (rapidStepTests != null ? rapidStepTests.size() : 0) + " total rapid step tests");
+            return (gson.toJson(rapidStepTests));
+        } else {
+            logger.severe("Step 3: FAILED - Unable to locate user with email: " + email);
+            throw new Exception("Unable to locate user: " + email);
+        }
     }
 
     public static String riskScore(String email) throws Exception{
