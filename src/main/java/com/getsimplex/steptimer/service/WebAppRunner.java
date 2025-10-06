@@ -183,6 +183,49 @@ public class WebAppRunner {
             return response;
         });
 
+        get("/user/:username", (req, res) -> {
+            Optional<User> loggedInUserOptional = userFilter(req, res);
+            String requestedUserName = req.params("username");
+            
+            if(loggedInUserOptional.isEmpty() || !requestedUserName.equals(loggedInUserOptional.get().getUserName())){
+                res.status(403); // Forbidden
+                res.body("You are not authorized to view this user.");
+                return "You are not authorized to view this user.";
+            }
+
+            User existingUser = (User) JedisData.getFromRedisMap(requestedUserName, User.class);
+            String response = "";
+
+            if (existingUser != null) {
+                // Create a copy of the user without the password for security
+                User userResponse = new User();
+                userResponse.setUserName(existingUser.getUserName());
+                userResponse.setEmail(existingUser.getEmail());
+                userResponse.setPhone(existingUser.getPhone());
+                userResponse.setWhatsAppPhone(existingUser.getWhatsAppPhone());
+                userResponse.setBirthDate(existingUser.getBirthDate());
+                userResponse.setDeviceNickName(existingUser.getDeviceNickName());
+                userResponse.setRegion(existingUser.getRegion());
+                userResponse.setExpoPushToken(existingUser.getExpoPushToken());
+                userResponse.setLocked(existingUser.isLocked());
+                userResponse.setAgreedToTextMessageDate(existingUser.getAgreedToTextMessageDate());
+                userResponse.setAgreedToPrivacyPolicyDate(existingUser.getAgreedToPrivacyPolicyDate());
+                userResponse.setAgreedToCookiePolicyDate(existingUser.getAgreedToCookiePolicyDate());
+                userResponse.setAgreedToTermsOfUseDate(existingUser.getAgreedToTermsOfUseDate());
+                userResponse.setAgreedToShareAnonymousData(existingUser.getAgreedToShareAnonymousData());
+                
+                res.status(200);
+                res.type("application/json");
+                response = gson.toJson(userResponse);
+            } else {
+                res.status(404); // User not found
+                response = "User " + req.params("username") + " not found.";
+            }
+
+            res.body(response);
+            return response;
+        });
+
         get("/validate/:token", (req,res)->{
             String emailAddress = SessionValidator.emailFromToken(req.params(":token"));
             if(emailAddress.isEmpty() || emailAddress==null){
