@@ -596,6 +596,91 @@ paths:
           description: Unauthorized - Invalid or missing session token
 
   /user/{username}:
+    get:
+      summary: Get User Information
+      description: Retrieve user profile information for the authenticated user
+      security:
+        - sessionToken: []
+      parameters:
+        - name: username
+          in: path
+          required: true
+          schema:
+            type: string
+            format: email
+          example: user@example.com
+          description: Username (email address) of user to retrieve
+      responses:
+        '200':
+          description: User information retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  userName:
+                    type: string
+                    format: email
+                    example: user@example.com
+                    description: User's email address (username)
+                  email:
+                    type: string
+                    format: email
+                    example: user@example.com
+                    description: User's email address
+                  phone:
+                    type: string
+                    example: "+18017190908"
+                    description: User's phone number
+                  whatsAppPhone:
+                    type: string
+                    example: "+18017190908"
+                    description: User's WhatsApp phone number
+                  birthDate:
+                    type: string
+                    example: "2001-01-01"
+                    description: User's birth date
+                  deviceNickName:
+                    type: string
+                    example: "MyDevice"
+                    description: User's device nickname
+                  region:
+                    type: string
+                    example: "US"
+                    description: User's region
+                  expoPushToken:
+                    type: string
+                    description: Expo push notification token
+                  locked:
+                    type: boolean
+                    example: false
+                    description: Whether the user account is locked
+                  agreedToTextMessageDate:
+                    type: number
+                    example: 1714444830351
+                    description: Timestamp when user agreed to text messages
+                  agreedToPrivacyPolicyDate:
+                    type: number
+                    example: 1714444830351
+                    description: Timestamp when user agreed to privacy policy
+                  agreedToCookiePolicyDate:
+                    type: number
+                    example: 1714444830351
+                    description: Timestamp when user agreed to cookie policy
+                  agreedToTermsOfUseDate:
+                    type: number
+                    example: 1714444830351
+                    description: Timestamp when user agreed to terms of use
+                  agreedToShareAnonymousData:
+                    type: number
+                    example: 1714444830351
+                    description: Timestamp when user agreed to share anonymous data
+        '401':
+          description: Unauthorized - Invalid or missing session token
+        '403':
+          description: Forbidden - You can only view your own user information
+        '404':
+          description: User not found
     delete:
       summary: Delete User
       security:
