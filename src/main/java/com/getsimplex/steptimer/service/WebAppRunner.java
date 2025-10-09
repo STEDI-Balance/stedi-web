@@ -255,7 +255,7 @@ public class WebAppRunner {
                 if (rateLimiter.tryAcquire()) {
 
                     if(whatsApp && !userOptional.get().getWhatsAppPhone().isEmpty()){
-                        SendWhatsApp.send(textMessage.getPhoneNumber(), TWILIO_OTP_MESSAGE_SID, textMessage.getMessage(), region);
+                        SendWhatsApp.send(textMessage.getPhoneNumber(), TWILIO_SECTOR_MESSAGE_SID, textMessage.getMessage(), region);
                     }
                     else{
                         SendText.send(textMessage.getPhoneNumber(), textMessage.getMessage(),region);
