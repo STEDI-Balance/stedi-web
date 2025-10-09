@@ -238,6 +238,7 @@ public class WebAppRunner {
         post("/sendtext",(req,res)->{//this url is for the DevOps class at BYUI so they can deploy STEDI and not need Twilio Credentials
             req.ip();
             String region = req.queryParams("region");
+            Boolean whatsApp = Boolean.valueOf(req.queryParams("whatsApp"));
             if(region==null || region.isEmpty()){
                 region="US";//default to US
             }
@@ -253,7 +254,12 @@ public class WebAppRunner {
                 // If the rate limiter allows, proceed with the request
                 if (rateLimiter.tryAcquire()) {
 
-                    SendText.send(textMessage.getPhoneNumber(), textMessage.getMessage(),region);
+                    if(whatsApp && !userOptional.get().getWhatsAppPhone().isEmpty()){
+                        SendWhatsApp.send(textMessage.getPhoneNumber(), TWILIO_OTP_MESSAGE_SID, textMessage.getMessage(), region);
+                    }
+                    else{
+                        SendText.send(textMessage.getPhoneNumber(), textMessage.getMessage(),region);
+                    }
                     res.status(200);
                     System.out.println("Text sent for source IP "+ clientIp);
                     return "Text Sent";
