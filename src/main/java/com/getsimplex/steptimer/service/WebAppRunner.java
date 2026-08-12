@@ -114,6 +114,7 @@ public class WebAppRunner {
                 User userUpdate = gson.fromJson(req.body(), User.class);
 
                 boolean updated = false;
+                boolean phoneUpdated = false;
 
                 // Update password if provided
                 if (userUpdate.getPassword() != null) {
@@ -138,6 +139,58 @@ public class WebAppRunner {
                 if (userUpdate.getDeviceNickName() != null) {
                     existingUser.setDeviceNickName(userUpdate.getDeviceNickName());
                     updated = true;
+                }
+
+                // Cell number changes must prove control of the new number first.
+                if (userUpdate.getPhone() != null && !userUpdate.getPhone().isEmpty()) {
+                    String requestedRegion = userUpdate.getRegion() != null && !userUpdate.getRegion().isEmpty()
+                            ? userUpdate.getRegion()
+                            : existingUser.getRegion();
+                    if (requestedRegion == null || requestedRegion.isEmpty()){
+                        requestedRegion = "US";
+                    }
+
+                    String formattedPhone = SendText.getFormattedPhone(userUpdate.getPhone(), requestedRegion);
+                    if (!formattedPhone.equals(existingUser.getPhone())) {
+                        if (!OneTimePasswordService.verifyOneTimePasswordForPhone(userUpdate.getPhone(), userUpdate.getOneTimePassword(), requestedRegion)) {
+                            res.status(400);
+                            response = "A valid one-time password is required before changing the cell number";
+                            res.body(response);
+                            return response;
+                        }
+
+                        try {
+                            User userWithRequestedPhone = FindUser.getUserByPhone(userUpdate.getPhone(), requestedRegion);
+                            if (userWithRequestedPhone != null && !userWithRequestedPhone.getUserName().equals(existingUser.getUserName())) {
+                                res.status(409);
+                                response = "Cell number is already registered";
+                                res.body(response);
+                                return response;
+                            }
+                        } catch (Exception ignored) {
+                            // No existing user has this phone number.
+                        }
+
+                        String oldPhone = existingUser.getPhone();
+                        existingUser.setPhone(formattedPhone);
+                        existingUser.setWhatsAppPhone(userUpdate.getWhatsAppPhone() != null && !userUpdate.getWhatsAppPhone().isEmpty()
+                                ? SendText.getFormattedPhone(userUpdate.getWhatsAppPhone(), requestedRegion)
+                                : formattedPhone);
+                        existingUser.setRegion(requestedRegion);
+
+                        Optional<Customer> customerOptional = CustomerService.findCustomerByPhone(oldPhone);
+                        if (customerOptional.isPresent()) {
+                            Customer customer = customerOptional.get();
+                            customer.setPhone(formattedPhone);
+                            customer.setWhatsAppPhone(existingUser.getWhatsAppPhone());
+                            customer.setRegion(requestedRegion);
+                            CustomerService.createOrUpdateCustomer(customer, true);
+                            CustomerService.deleteCustomer(oldPhone);
+                        }
+
+                        phoneUpdated = true;
+                        updated = true;
+                    }
                 }
 
                 // Update agreement dates if provided
@@ -167,7 +220,12 @@ public class WebAppRunner {
                 }
 
                 if (updated) {
-                    JedisData.updateRedisMap(existingUser, existingUser.getUserName());
+                    if (phoneUpdated) {
+                        String numericDigitsOnly = existingUser.getPhone().replaceAll("[^0-9]","");
+                        JedisData.loadToJedis(existingUser, existingUser.getUserName(), Long.valueOf(numericDigitsOnly));
+                    } else {
+                        JedisData.updateRedisMap(existingUser, existingUser.getUserName());
+                    }
                     res.status(200);
                     response = "User updated successfully";
                 } else {
@@ -224,6 +282,65 @@ public class WebAppRunner {
 
             res.body(response);
             return response;
+        });
+
+        post("/user/:username/phone-verification", (req, res) -> {
+            Optional<User> loggedInUserOptional = userFilter(req, res);
+            String existingUserName = req.params("username");
+            if(loggedInUserOptional.isEmpty() || !existingUserName.equals(loggedInUserOptional.get().getUserName())){
+                res.status(403);
+                return "You are not authorized to update this user.";
+            }
+
+            User phoneUpdate = gson.fromJson(req.body(), User.class);
+            String requestedRegion = phoneUpdate.getRegion() != null && !phoneUpdate.getRegion().isEmpty()
+                    ? phoneUpdate.getRegion()
+                    : loggedInUserOptional.get().getRegion();
+            if (requestedRegion == null || requestedRegion.isEmpty()){
+                requestedRegion = "US";
+            }
+
+            if (phoneUpdate.getPhone() == null || phoneUpdate.getPhone().isEmpty()){
+                res.status(400);
+                return "A cell number is required";
+            }
+
+            String formattedPhone = SendText.getFormattedPhone(phoneUpdate.getPhone(), requestedRegion);
+            if (formattedPhone.equals(loggedInUserOptional.get().getPhone())){
+                res.status(200);
+                return "Cell number is already verified";
+            }
+
+            try {
+                User userWithRequestedPhone = FindUser.getUserByPhone(phoneUpdate.getPhone(), requestedRegion);
+                if (userWithRequestedPhone != null && !userWithRequestedPhone.getUserName().equals(loggedInUserOptional.get().getUserName())) {
+                    res.status(409);
+                    return "Cell number is already registered";
+                }
+            } catch (Exception e) {
+                if (!e.getMessage().contains("not found")){
+                    res.status(409);
+                    return "Cell number is already registered";
+                }
+            }
+
+            int randomNum = ThreadLocalRandom.current().nextInt(1111, 10000);
+            OneTimePassword oneTimePassword = new OneTimePassword();
+            oneTimePassword.setOneTimePassword(randomNum);
+            oneTimePassword.setExpirationDate(new Date(System.currentTimeMillis()+60l*30l*1000l));
+            oneTimePassword.setLoginToken(req.headers("suresteps.session.token"));
+            oneTimePassword.setPhoneNumber(formattedPhone);
+            OneTimePasswordService.saveOneTimePassword(oneTimePassword);
+
+            Boolean whatsApp = Boolean.valueOf(req.queryParams("whatsApp"));
+            if(whatsApp){
+                SendWhatsApp.send(formattedPhone, TWILIO_OTP_MESSAGE_SID, String.valueOf(randomNum), requestedRegion);
+            } else {
+                SendText.send(formattedPhone, "Your STEDI one-time password is : "+String.valueOf(randomNum), requestedRegion);
+            }
+
+            res.status(200);
+            return "Ok";
         });
 
         get("/validate/:token", (req,res)->{
