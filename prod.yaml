@@ -1,5 +1,10 @@
 #Copyright 2021 Sean Murdock
 
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: stedi-prod-sa
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -14,6 +19,9 @@ spec:
       labels:
         app: stedi-prod
     spec:
+      serviceAccountName: stedi-prod-sa
+      imagePullSecrets:
+        - name: gcr-pull-secret
       nodeSelector:
         cloud.google.com/gke-spot: "true"    
       containers:
@@ -65,7 +73,6 @@ spec:
               port: 4567
             initialDelaySeconds: 3
             periodSeconds: 3
----
 apiVersion: v1
 kind: Service
 metadata:
@@ -79,7 +86,6 @@ spec:
       targetPort: 54321
   type: LoadBalancer
 
----
 apiVersion: v1
 kind: Service
 metadata:
@@ -91,7 +97,6 @@ spec:
   ports:
     - port: 80
       targetPort: 4567
----
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -109,7 +114,6 @@ spec:
       name: stedi-prod-nodeport
       port:
         number: 80
----
 apiVersion: networking.gke.io/v1beta1
 kind: FrontendConfig
 metadata:
@@ -118,7 +122,6 @@ spec:
   redirectToHttps:
     enabled: true
     responseCodeName: MOVED_PERMANENTLY_DEFAULT
----            
 apiVersion: networking.gke.io/v1
 kind: ManagedCertificate
 metadata:
