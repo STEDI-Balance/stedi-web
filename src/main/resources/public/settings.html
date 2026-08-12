@@ -1,0 +1,68 @@
+<!--Copyright 2021 Sean Murdock-->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>STEDI Settings</title>
+    <link href="style.css" rel="stylesheet" type="text/css" />
+    <link rel="shortcut icon" href="favicon.ico" type="image/x-icon" />
+</head>
+<body>
+<div class="page-header">
+    <p><img src="stedi-logo-4000px-x-4000px.png" width="200" height="200" style="background-color:black;"/></p>
+</div>
+<div style="text-align:center">
+    <h2 class="stepcount">User Settings</h2>
+    <p class="stepcount">Signed in as <span id="settingsEmail"></span></p>
+
+    <form name="settingsForm" id="settingsForm" method="post" onsubmit="return false;">
+        <p>
+            <label class="stepcount" for="deviceNickName">Device nickname</label><br>
+            <input class="stepcount" type="text" id="deviceNickName" name="deviceNickName" size="40" maxlength="120" autocomplete="nickname" placeholder="e.g. spotter-7.stedi.local" title="Name shown for this device / wall unit">
+        </p>
+        <p class="stepcount">
+            Verified cell<br>
+            <span id="verifiedPhoneLabel" class="stepcount">&mdash;</span>
+            <span id="verifiedRegionHint" class="stepcount"></span>
+        </p>
+        <p class="stepcount">
+            <label>
+                <input type="checkbox" id="changePhoneToggle" autocomplete="off">
+                Change cell number or country code
+            </label>
+        </p>
+        <div id="phoneChangePanel" style="display:none;">
+            <p class="stepcount">
+                Changing your number replaces the verified cell only after you enter the code sent to the new number.
+            </p>
+            <p>
+                <label class="stepcount" for="phone">New cell number</label><br>
+                <input class="stepcount" type="tel" id="phone" name="phone" size="25" autocomplete="tel" aria-describedby="phoneHelp">
+                <span id="phoneHelp" class="stepcount"><br>Use the number exactly as you use it locally; pick the matching country below.</span>
+            </p>
+            <p>
+                <label class="stepcount" for="countryCode">Country / region code</label><br>
+                <input class="stepcount" type="text" id="countryCode" name="countryCode" size="4" maxlength="8" autocomplete="country" placeholder="US" title="ISO country code for parsing (e.g. US, GB)">
+            </p>
+            <p>
+                <input class="btn btn-lg btn-primary" id="sendVerificationBtn" type="button" value="Send verification code">
+            </p>
+            <p>
+                <label class="stepcount" for="oneTimePassword">Verification code</label><br>
+                <input class="stepcount" type="text" id="oneTimePassword" name="oneTimePassword" size="10" maxlength="12" inputmode="numeric" autocomplete="one-time-code">
+            </p>
+        </div>
+        <p>
+            <input class="btn btn-lg btn-primary" id="saveSettingsBtn" type="button" value="Save settings">
+        </p>
+        <p>
+            <a class="stepcount" id="backToTimer" href="/timer.html">Back to Step Test</a>
+        </p>
+    </form>
+</div>
+
+<script src="jquery-3.6.0.min.js"></script>
+<script src="settings.js"></script>
+</body>
+</html>

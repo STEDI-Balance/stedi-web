@@ -84,6 +84,7 @@
                  window.location="/"
                } else{
                  $('#email').html(data);
+                 $('#settings').attr('href', '/settings.html#' + usertoken);
                }
             },//token is no longer valid (1 hour expiration), they need to log in
             contentType: "application/text",
