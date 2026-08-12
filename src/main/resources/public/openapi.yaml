@@ -836,6 +836,16 @@ paths:
                   type: string
                   example: "Male"
                   description: Customer's gender (optional)
+                weight:
+                  type: number
+                  format: int64
+                  example: 150
+                  description: Customer's weight in pounds or kilograms (optional)
+                height:
+                  type: number
+                  format: int64
+                  example: 70
+                  description: Customer's height in inches or centimeters (optional)
       responses:
         '200':
           description: Customer created successfully
@@ -850,7 +860,77 @@ paths:
           description: Unauthorized - Invalid or missing session token
         '409':
           description: Customer already exists
-
+    put:
+      summary: Update Customer
+      description: Update an existing customer profile
+      security:
+        - sessionToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - customerName
+                - email
+                - phone
+                - birthDay
+              properties:
+                customerName:
+                  type: string
+                  example: "John Doe"
+                  description: Customer's full name
+                email:
+                  type: string
+                  format: email
+                  example: "john.doe@example.com"
+                  description: Customer's email address
+                phone:
+                  type: string
+                  example: "+1-555-123-4567"
+                  description: Customer's primary phone number
+                whatsAppPhone:
+                  type: string
+                  example: "+1-555-123-4567"
+                  description: Customer's WhatsApp phone number (optional, defaults to phone if not provided)
+                birthDay:
+                  type: string
+                  format: date
+                  example: "1990-01-15"
+                  description: Customer's birth date (YYYY-MM-DD format)
+                region:
+                  type: string
+                  example: "US"
+                  description: Customer's region/country code (e.g., US, CA, GB)
+                gender:
+                  type: string
+                  example: "Male"
+                  description: Customer's gender (optional)
+                weight:
+                  type: number
+                  format: int64
+                  example: 150
+                  description: Customer's weight in pounds or kilograms (optional)
+                height:
+                  type: number
+                  format: int64
+                  example: 70
+                  description: Customer's height in inches or centimeters (optional)
+      responses:
+        '200':
+          description: Customer updated successfully
+          content:
+            application/json:
+              schema:
+                type: string
+                example: "Successfully created customer"
+        '400':
+          description: Invalid request data
+        '401':
+          description: Unauthorized - Invalid or missing session token
+        '409':
+          description: Customer already exists
   /user:
     post:
       summary: Create User
