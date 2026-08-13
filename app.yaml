@@ -1,6 +1,11 @@
 #Copyright 2021 Sean Murdock
 # this is a comment
 # this is the version of YAML we are using with the Kubernetes API
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: stedi-dev-sa
+---
 apiVersion: apps/v1 
 # The kind is the type of Kubernetes resource we are using
 # A deployment is when we run code on a a server
@@ -28,6 +33,9 @@ spec:
     spec:
       nodeSelector:
         cloud.google.com/gke-spot: "true"    
+      serviceAccountName: stedi-dev-sa
+      imagePullSecrets:
+        - name: gcr-pull-secret
 # Containers can have one or more Docker containers in the pod
       containers:
 # The name of the container is specified below      
@@ -94,7 +102,6 @@ spec:
             initialDelaySeconds: 3
 # periodSeconds tells Kubernetes how often to check health            
             periodSeconds: 3
----
 apiVersion: v1
 kind: Service
 metadata:
@@ -108,7 +115,6 @@ spec:
       targetPort: 54321
   type: LoadBalancer
 
----
 apiVersion: v1
 kind: Service
 metadata:
@@ -120,7 +126,6 @@ spec:
   ports:
     - port: 80
       targetPort: 4567
----
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -138,7 +143,6 @@ spec:
       name: stedi-nodeport
       port:
         number: 80
----
 apiVersion: networking.gke.io/v1
 kind: ManagedCertificate
 metadata:
@@ -146,7 +150,6 @@ metadata:
 spec:
   domains:
     - dev.stedi.me
----
 apiVersion: networking.gke.io/v1beta1
 kind: FrontendConfig
 metadata:
