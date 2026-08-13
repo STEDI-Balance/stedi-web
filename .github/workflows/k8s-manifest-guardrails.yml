@@ -1,0 +1,64 @@
+name: Kubernetes Manifest Guardrails
+
+on:
+  pull_request:
+    paths:
+      - 'app.yaml'
+      - 'prod.yaml'
+      - '.github/workflows/k8s-manifest-guardrails.yml'
+  push:
+    branches:
+      - main
+    paths:
+      - 'app.yaml'
+      - 'prod.yaml'
+
+jobs:
+  validate-manifests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Ensure service account wiring remains present
+        run: |
+          set -euo pipefail
+
+          grep -q 'serviceAccountName: stedi-dev-sa' app.yaml
+          grep -q 'serviceAccountName: stedi-prod-sa' prod.yaml
+
+      - name: Ensure expiring pull-secret dependency is not reintroduced
+        run: |
+          set -euo pipefail
+
+          if grep -q 'imagePullSecrets:' app.yaml; then
+            echo 'app.yaml must not depend on imagePullSecrets for registry auth'
+            exit 1
+          fi
+
+          if grep -q 'imagePullSecrets:' prod.yaml; then
+            echo 'prod.yaml must not depend on imagePullSecrets for registry auth'
+            exit 1
+          fi
+
+      - name: Ensure HPA targets remain configured at 80%
+        run: |
+          set -euo pipefail
+
+          grep -q 'kind: HorizontalPodAutoscaler' app.yaml
+          grep -q 'name: stedi-hpa' app.yaml
+          grep -q 'kind: HorizontalPodAutoscaler' prod.yaml
+          grep -q 'name: stedi-prod-hpa' prod.yaml
+
+          app_targets="$(grep -c 'averageUtilization: 80' app.yaml)"
+          prod_targets="$(grep -c 'averageUtilization: 80' prod.yaml)"
+
+          if [[ "$app_targets" -lt 2 ]]; then
+            echo 'app.yaml must include CPU and memory averageUtilization: 80 targets'
+            exit 1
+          fi
+
+          if [[ "$prod_targets" -lt 2 ]]; then
+            echo 'prod.yaml must include CPU and memory averageUtilization: 80 targets'
+            exit 1
+          fi

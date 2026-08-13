@@ -34,8 +34,6 @@ spec:
       nodeSelector:
         cloud.google.com/gke-spot: "true"    
       serviceAccountName: stedi-dev-sa
-      imagePullSecrets:
-        - name: gcr-pull-secret
 # Containers can have one or more Docker containers in the pod
       containers:
 # The name of the container is specified below      
@@ -102,6 +100,32 @@ spec:
             initialDelaySeconds: 3
 # periodSeconds tells Kubernetes how often to check health            
             periodSeconds: 3
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: stedi-hpa
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: stedi
+  minReplicas: 1
+  maxReplicas: 5
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 80
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 80
+---
 apiVersion: v1
 kind: Service
 metadata:
