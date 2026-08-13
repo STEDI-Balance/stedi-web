@@ -20,8 +20,6 @@ spec:
         app: stedi-prod
     spec:
       serviceAccountName: stedi-prod-sa
-      imagePullSecrets:
-        - name: gcr-pull-secret
       nodeSelector:
         cloud.google.com/gke-spot: "true"    
       containers:

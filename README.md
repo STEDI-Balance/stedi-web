@@ -19,28 +19,27 @@ To start this project, run the following commands:
 
 `java -jar StepTimerWebsocket-1.0-SNAPSHOT.jar`
 
-## Kubernetes Image Pull Secret
+## Kubernetes Image Pull Authentication
 
-The dev and prod Kubernetes manifests expect a docker-registry secret named gcr-pull-secret in the target namespace so the cluster can pull the application image from gcr.io.
+The dev and prod Kubernetes manifests use IAM-based image pull authentication (node identity) for `gcr.io` images.
 
-Create or rotate this secret as part of cluster bootstrap and ongoing operations whenever registry credentials or pull access change.
+Do not depend on short-lived docker-registry access-token secrets for ongoing pulls.
 
 ## Why Pulls Fail And How We Prevent Repeats
 
 Recent pull failures typically happen when one of these drifts from the repo state or from the cluster state:
 
-- The deployment no longer references `imagePullSecrets: gcr-pull-secret`
+- An expiring docker-registry token secret was used for image pulls
 - The deployment no longer runs with the expected service account
-- The `gcr-pull-secret` secret is missing or stale in the namespace
 - Registry IAM no longer grants pull access to the identity used to fetch images
 
 Durable protections now in this repo:
 
-- `app.yaml` and `prod.yaml` explicitly keep `serviceAccountName` and `imagePullSecrets` wiring
-- `.github/workflows/k8s-manifest-guardrails.yml` fails PRs if that wiring or HPA targets are removed
+- `app.yaml` and `prod.yaml` keep explicit `serviceAccountName` wiring and avoid `imagePullSecrets`
+- `.github/workflows/k8s-manifest-guardrails.yml` fails PRs if pull-secret dependency is reintroduced or HPA targets are removed
 
 Operational checks before/after deploy:
 
-- Verify secret exists: `kubectl get secret gcr-pull-secret`
-- Verify deployment references: `kubectl get deploy stedi stedi-prod -o yaml | grep -E "serviceAccountName|imagePullSecrets|gcr-pull-secret"`
+- Verify deployment references: `kubectl get deploy stedi stedi-prod -o yaml | grep -E "serviceAccountName|imagePullSecrets"`
+- Verify IAM bindings for image pull identities include `roles/storage.objectViewer` (or equivalent)
 - If image pulls fail, inspect events immediately: `kubectl describe pod <pod-name>`

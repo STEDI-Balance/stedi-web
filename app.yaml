@@ -34,8 +34,6 @@ spec:
       nodeSelector:
         cloud.google.com/gke-spot: "true"    
       serviceAccountName: stedi-dev-sa
-      imagePullSecrets:
-        - name: gcr-pull-secret
 # Containers can have one or more Docker containers in the pod
       containers:
 # The name of the container is specified below      
