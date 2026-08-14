@@ -2,10 +2,6 @@
 
 package com.getsimplex.steptimer.model;
 
-import javax.crypto.SecretKey;
-import java.util.Calendar;
-import java.util.Date;
-
 /**
  * Created by sean on 9/7/2016.
  */
@@ -21,6 +17,7 @@ public class User {
     private String deviceNickName;
     private String region;
     private String expoPushToken;
+    private Integer oneTimePassword;
 
     private boolean locked;
 
@@ -158,5 +155,13 @@ public class User {
     }
     public void setExpoPushToken(String expoPushToken) {
         this.expoPushToken = expoPushToken;
+    }
+
+    public Integer getOneTimePassword() {
+        return oneTimePassword;
+    }
+
+    public void setOneTimePassword(Integer oneTimePassword) {
+        this.oneTimePassword = oneTimePassword;
     }
 }
