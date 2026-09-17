@@ -187,6 +187,29 @@ components:
           description: Customer's gender
 
 paths:
+  /simulation:
+    get:
+      summary: Get simulation status
+      responses:
+        '200':
+          description: Whether simulation is active
+          content:
+            text/plain:
+              schema:
+                type: boolean
+    post:
+      summary: Start simulated customer data
+      description: Requires the server environment variable ENABLE_SIMULATION_MODE=true.
+      responses:
+        '200':
+          description: Simulation start request accepted
+        '403':
+          description: Simulation mode is disabled on the server
+    delete:
+      summary: Stop simulated customer data
+      responses:
+        '200':
+          description: Simulation stop request accepted
   /login:
     post:
       summary: Log in to STEDI

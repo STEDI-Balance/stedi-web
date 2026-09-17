@@ -24,6 +24,7 @@
         } else {
             usertoken = hashparts[1];// the url should look like https://stedi.me/timer.html#4c2286a7-8fdc-47c5-b972-739769554c88
             validateToken();//check if token is expired, if not display the email, if expired send to login
+            fetchToggleState();
         }
     });
 
@@ -32,6 +33,39 @@
             onStep();
         }
     };
+
+    const fetchToggleState = () => {
+        $.ajax({
+            type: 'GET',
+            url: '/simulation',
+            success: (simulationActive) => {
+                $('#enablesimulationcheckbox').prop('checked', simulationActive === true || simulationActive === 'true');
+            },
+            error: () => {
+                $('#enablesimulationcheckbox').prop('checked', false);
+            },
+            contentType: 'application/text',
+            dataType: 'text'
+        });
+    }
+
+    const simulationUpdate = (checkbox) => {
+        const activating = $(checkbox).is(':checked');
+        $.ajax({
+            type: activating ? 'POST' : 'DELETE',
+            url: '/simulation',
+            error: (response) => {
+                $(checkbox).prop('checked', !activating);
+                if (response.status === 403) {
+                    alert('Simulation mode is disabled on this server.');
+                } else {
+                    alert('Unable to update simulation mode.');
+                }
+            },
+            contentType: 'application/text',
+            dataType: 'text'
+        });
+    }
 
 
 

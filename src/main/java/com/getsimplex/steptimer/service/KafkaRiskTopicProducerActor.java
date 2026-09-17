@@ -3,9 +3,8 @@
 package com.getsimplex.steptimer.service;
 
 import akka.actor.UntypedActor;
-import com.getsimplex.steptimer.model.DeviceMessage;
 import com.getsimplex.steptimer.model.StediEvent;
-import org.apache.kafka.clients.consumer.ConsumerRecords;
+import com.getsimplex.steptimer.utils.Configuration;
 import org.apache.kafka.clients.producer.Producer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 
@@ -13,7 +12,7 @@ import java.util.Optional;
 import java.util.logging.Logger;
 
 public class KafkaRiskTopicProducerActor extends UntypedActor {
-    private final static String TOPIC = "stedi-events";
+    private final static String TOPIC = Configuration.getConfiguration().getString("kafka.riskTopic");
     private static Logger logger = Logger.getLogger(KafkaRiskTopicProducerActor.class.getName());
     private Optional<Producer<Long,String>> stediEventsTopic = Optional.empty();
 
@@ -26,7 +25,7 @@ public class KafkaRiskTopicProducerActor extends UntypedActor {
                 logger.info("Creating Kafka Producer");
                 stediEventsTopic = Optional.of(KafkaProducerUtil.createProducer());
             }
-            logger.info("Sending to Kafka Topic: stedi-events");
+            logger.info("Sending to Kafka Topic: " + TOPIC);
 
             ProducerRecord<Long, String> record = new ProducerRecord<Long, String>(TOPIC, System.currentTimeMillis(),event.getMessage());
             stediEventsTopic.get().send(record);

@@ -33,6 +33,8 @@ spec:
               value: "0"
             - name: KAFKA_BROKER
               value: "localhost:9092"
+            - name: ENABLE_SIMULATION_MODE
+              value: "false"
             - name: TWILIO_ACCOUNT_SID
               valueFrom:
                 secretKeyRef:

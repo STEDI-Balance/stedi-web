@@ -313,7 +313,13 @@ public class WebAppRunner {
                     return gson.toJson(recent);
                 });
         get("/simulation", (req, res) -> SimulationDataDriver.getSimulationActive());
-        post("/simulation", (req, res)-> MessageIntake.route(new StartSimulation(30)));
+        post("/simulation", (req, res)-> {
+            if (!simulationModeEnabled()) {
+                res.status(403);
+                return "Simulation mode is disabled";
+            }
+            return MessageIntake.route(new StartSimulation(30));
+        });
         delete("/simulation", (req, res)-> MessageIntake.route(new StopSimulation()));
         post("/complexity", (req,res)->{
             res.type("application/json");
@@ -822,6 +828,10 @@ public class WebAppRunner {
             return Integer.parseInt(processBuilder.environment().get("PORT"));
         }
         return Configuration.getConfiguration().getInt("suresteps.port"); //return default port if heroku-port isn't set (i.e. on localhost)
+    }
+
+    private static boolean simulationModeEnabled() {
+        return Boolean.parseBoolean(System.getenv("ENABLE_SIMULATION_MODE"));
     }
 
 }

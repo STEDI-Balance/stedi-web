@@ -6,6 +6,7 @@ import com.getsimplex.steptimer.model.Customer;
 import com.getsimplex.steptimer.model.DeviceMessage;
 import com.getsimplex.steptimer.model.RapidStepTest;
 import com.getsimplex.steptimer.model.StediEvent;
+import com.getsimplex.steptimer.model.User;
 import com.getsimplex.steptimer.utils.JedisData;
 import com.google.gson.Gson;
 import org.eclipse.jetty.websocket.api.Session;
@@ -40,25 +41,39 @@ public class SimulationDataDriver {
         remoteSession=session;
     }
 
-    public static synchronized void generateTestCustomers(int numberOfUsers) {
+    public static synchronized int generateTestCustomers(int numberOfUsers) {
         testCustomers.clear();
         int nextCustomerAge = 55;
-        for (int i = 0; i < numberOfUsers - 1; i++) {
+        for (int i = 0; i < numberOfUsers; i++) {
             try {
                 Customer customer = new Customer();
-                String firstName = firstNames[random.nextInt(numberOfUsers)];
-                String lastName = lastNames[random.nextInt(numberOfUsers)];
+                String firstName = firstNames[random.nextInt(firstNames.length)];
+                String lastName = lastNames[random.nextInt(lastNames.length)];
+                String email = String.format("simulation.user.%02d@test.com", i);
                 customer.setCustomerName(firstName + " " + lastName);
-                customer.setEmail(firstName + "." + lastName + "@test.com");
-                customer.setPhone("8015551212");
+                customer.setEmail(email);
+                customer.setPhone(String.format("801555%04d", 1200 + i));
+                customer.setWhatsAppPhone("");
+                customer.setRegion("US");
                 customer.setBirthDay((2020-nextCustomerAge++)+"-01-01");//spread age out evenly
-                CustomerService.createOrUpdateCustomer(customer,false);
+                CustomerService.createOrUpdateCustomer(customer,true);
+
+                User user = new User();
+                user.setUserName(email);
+                user.setEmail(email);
+                user.setPhone(customer.getPhone());
+                user.setWhatsAppPhone(customer.getWhatsAppPhone());
+                user.setRegion(customer.getRegion());
+                user.setBirthDate(customer.getBirthDay());
+                user.setDeviceNickName(email);
+                long phoneNumber = Long.parseLong(customer.getPhone().replaceAll("[^0-9]", ""));
+                JedisData.loadToJedis(user, email, phoneNumber);
                 testCustomers.add(customer);
             } catch (Exception e) {
                 System.out.println(e.getMessage());
             }
         }
-
+        return testCustomers.size();
     }
 
     public static void createRapidStepTests() {
@@ -93,7 +108,8 @@ public class SimulationDataDriver {
                  rapidStepTest.setStartTime(rapidStepTest.getStopTime() - testTime);
                  rapidStepTest.setTestTime(testTime);
                  rapidStepTest.setTotalSteps(30);
-                 JedisData.loadToJedis(rapidStepTest, UUID.randomUUID().toString(), rapidStepTest.getStopTime());
+                 rapidStepTest.setStepPoints(new ArrayList<Long>(Collections.nCopies(30, testTime / 30)));
+                 SaveRapidStepTest.save(gson.toJson(rapidStepTest));
                  Thread.sleep(2000);//2 seconds sleep time between each message makes a new message every minute for every customer assuming 30 test customers
                  String riskScoreJson = StepHistory.riskScore(testCustomer.getEmail());//this is logged, and we don't actually need it right here, we just want it to be visible for logging purposes
 
