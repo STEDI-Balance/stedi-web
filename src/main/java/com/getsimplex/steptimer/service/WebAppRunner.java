@@ -313,7 +313,13 @@ public class WebAppRunner {
                     return gson.toJson(recent);
                 });
         get("/simulation", (req, res) -> SimulationDataDriver.getSimulationActive());
-        post("/simulation", (req, res)-> MessageIntake.route(new StartSimulation(30)));
+        post("/simulation", (req, res)-> {
+            if (!simulationModeEnabled()) {
+                res.status(403);
+                return "Simulation mode is disabled";
+            }
+            return MessageIntake.route(new StartSimulation(30));
+        });
         delete("/simulation", (req, res)-> MessageIntake.route(new StopSimulation()));
         post("/complexity", (req,res)->{
             res.type("application/json");
@@ -705,7 +711,17 @@ public class WebAppRunner {
                     return "OK";
         });
         init();
+        startSimulationIfRequested();
         startTCPSocket();
+    }
+
+    // SIMULATION=true (or -Dsimulation=true) starts the simulator at startup, same as POST /simulation
+    private static void startSimulationIfRequested(){
+        if (simulationRequestedAtStartup()) {
+            int numberOfCustomers = System.getenv("SIMULATION_CUSTOMERS") != null ? Integer.parseInt(System.getenv("SIMULATION_CUSTOMERS")) : 30;
+            System.out.println("Starting simulation at startup for " + numberOfCustomers + " test customers");
+            MessageIntake.route(new StartSimulation(numberOfCustomers));
+        }
     }
     private static String twoFactorLogin(Request request, Response response){
         String phoneNumber =  request.params(":phoneNumber");
@@ -822,6 +838,16 @@ public class WebAppRunner {
             return Integer.parseInt(processBuilder.environment().get("PORT"));
         }
         return Configuration.getConfiguration().getInt("suresteps.port"); //return default port if heroku-port isn't set (i.e. on localhost)
+    }
+
+    private static boolean simulationRequestedAtStartup() {
+        String simulation = System.getenv("SIMULATION") != null ? System.getenv("SIMULATION") : System.getProperty("simulation");
+        return Boolean.parseBoolean(simulation);
+    }
+
+    // POST /simulation (and the timer page toggle) only work when the server opted in
+    private static boolean simulationModeEnabled() {
+        return Boolean.parseBoolean(System.getenv("ENABLE_SIMULATION_MODE")) || simulationRequestedAtStartup();
     }
 
 }

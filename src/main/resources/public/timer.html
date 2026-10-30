@@ -10,6 +10,13 @@
 		<link rel="shortcut icon" href= "favicon.ico" type="image/x-icon" />
 	</head>
 	<body>
+	<div class="slider-right-corner">
+		Activate Simulated User Data
+		<label class="switch">
+			<input id="enablesimulationcheckbox" type="checkbox" onchange="simulationUpdate(this);">
+			<span class="slider round"></span>
+		</label>
+	</div>
 	<div style="text-align:center">
 	<p class="stepcount">STEDI Participant: <a id="email"></a></p>
 	<p>
