@@ -20,7 +20,9 @@ public class SendText {
         ACCOUNT_SID = System.getenv("TWILIO_ACCOUNT_SID");
         AUTH_TOKEN = System.getenv("TWILIO_AUTH_TOKEN");
         TWILIO_PHONE = System.getenv("TWILIO_PHONE");
-        Twilio.init(ACCOUNT_SID, AUTH_TOKEN);
+        if (ACCOUNT_SID != null && !ACCOUNT_SID.isEmpty() && AUTH_TOKEN != null && !AUTH_TOKEN.isEmpty()) {//without credentials (local or student runs) skip init so phone formatting still works
+            Twilio.init(ACCOUNT_SID, AUTH_TOKEN);
+        }
     }
 
     public static void send(String destinationPhone, String text, String region) throws Exception{

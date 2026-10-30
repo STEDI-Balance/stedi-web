@@ -705,7 +705,18 @@ public class WebAppRunner {
                     return "OK";
         });
         init();
+        startSimulationIfRequested();
         startTCPSocket();
+    }
+
+    // SIMULATION=true (or -Dsimulation=true) starts the simulator at startup, same as POST /simulation
+    private static void startSimulationIfRequested(){
+        String simulation = System.getenv("SIMULATION") != null ? System.getenv("SIMULATION") : System.getProperty("simulation");
+        if (Boolean.parseBoolean(simulation)) {
+            int numberOfCustomers = System.getenv("SIMULATION_CUSTOMERS") != null ? Integer.parseInt(System.getenv("SIMULATION_CUSTOMERS")) : 30;
+            System.out.println("Starting simulation at startup for " + numberOfCustomers + " test customers");
+            MessageIntake.route(new StartSimulation(numberOfCustomers));
+        }
     }
     private static String twoFactorLogin(Request request, Response response){
         String phoneNumber =  request.params(":phoneNumber");
