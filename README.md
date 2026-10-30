@@ -96,7 +96,7 @@ kubectl exec -it <redis-pod> -n <your-namespace> -- redis-cli --scan --pattern '
 kubectl exec -it <redis-pod> -n <your-namespace> -- redis-cli get 'signup:Sarah.Jones.0@test.com'
 
 # risk events
-kubectl exec -it kafka-0 -n <your-namespace> -- \
+kubectl exec -it kafka-controller-0 -n <your-namespace> -- \
   kafka-console-consumer.sh --bootstrap-server localhost:9092 --topic <your-topic> --from-beginning
 
 # STEDI logs: "Starting simulation at startup" and "Sending to Kafka Topic: <your-topic>"
