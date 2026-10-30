@@ -26,11 +26,16 @@ public class SimulationActor extends UntypedActor {
             try{
                 SimulationDataDriver.setSimulationActive(true);
                 logger.info("Creating test customers...");
-                SimulationDataDriver.generateTestCustomers(startSimulation.getNumberOfCustomers());//the Kafka Redis Topic needs to be active at this point since this only happens once and they will miss it
+                int generatedCustomers = SimulationDataDriver.generateTestCustomers(startSimulation.getNumberOfCustomers());//the Kafka Redis Topic needs to be active at this point since this only happens once and they will miss it
+                if (generatedCustomers == 0) {
+                    throw new IllegalStateException("Unable to create test customers; simulation stopped");
+                }
                 logger.info("Starting infinite loop for test data");
                 SimulationDataDriver.createRapidStepTests();
                 self().tell(new ContinueSimulation(), self());//continue simulation
             } catch (Exception e){
+                stop = true;
+                SimulationDataDriver.setSimulationActive(false);
                 logger.severe(e.getMessage());
             }
         } else if (object instanceof StopSimulation){
@@ -45,6 +50,8 @@ public class SimulationActor extends UntypedActor {
                 SimulationDataDriver.createRapidStepTests();
                 self().tell(new ContinueSimulation(), self());//continue simulation
             } catch (Exception e){
+                stop = true;
+                SimulationDataDriver.setSimulationActive(false);
                 logger.severe(e.getMessage());
             }
         }

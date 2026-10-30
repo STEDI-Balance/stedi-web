@@ -21,9 +21,9 @@ To start this project, run the following commands:
 
 ## Simulator (demo data)
 
-STEDI includes a simulator that creates test customers and generates balance-test data for them, so you can see data flow without real users or devices. It is off by default.
+STEDI includes a simulator that creates test customers and generates balance-test data for them, so you can see data flow without real users or devices. It is off by default, and the server must opt in before anyone can start it: set `ENABLE_SIMULATION_MODE=true` to allow starting it from the timer page or the API, or `SIMULATION=true` to start it automatically when STEDI starts (which also allows the timer page and the API).
 
-> **Using an older copy of STEDI?** The startup flag, signup events, and `KAFKA_STEDI_EVENTS_TOPIC` were added in October 2026. If you copied this repository before then, download it again and rebuild your image.
+> **Using an older copy of STEDI?** The startup flag, the timer page toggle, signup events, and `KAFKA_STEDI_EVENTS_TOPIC` were added in October 2026. If you copied this repository before then, download it again and rebuild your image.
 
 ### Turn it on at startup
 
@@ -31,7 +31,8 @@ Set these environment variables on the STEDI container (in Kubernetes, add them 
 
 | Variable | Default | What it does |
 | --- | --- | --- |
-| `SIMULATION` | off | `true` starts the simulator when STEDI starts. (`-Dsimulation=true` on the `java` command line does the same.) |
+| `SIMULATION` | off | `true` starts the simulator when STEDI starts, and allows starting it again from the timer page or the API. (`-Dsimulation=true` on the `java` command line does the same.) |
+| `ENABLE_SIMULATION_MODE` | `false` | `true` allows starting the simulator from the timer page or the API without starting it at startup. The dev and prod manifests set this to `false`. |
 | `SIMULATION_CUSTOMERS` | `30` | How many test customers to create (the simulator creates one fewer than this number). |
 | `REDIS_HOST`, `REDIS_PORT`, `REDIS_PASSWORD`, `REDIS_DB` | | The Redis where customers, signups, and tests are written. |
 | `KAFKA_BROKER` | `localhost:9092` | Kafka bootstrap server for risk events, for example `kafka.<your-namespace>.svc.cluster.local:9092`. |
@@ -49,15 +50,21 @@ For example, in a Kubernetes deployment manifest:
               value: "<your-topic>"
 ```
 
-You can also start and stop it while STEDI is running:
+### Start and stop it while STEDI is running
+
+On the timer page (`/timer.html`), use the **Activate Simulated User Data** toggle in the top-right corner. If the server has not opted in, the toggle switches back off and shows "Simulation mode is disabled on this server."
+
+Or use the API:
 
 ```bash
-curl -X POST   http://<stedi-host>:4567/simulation   # start (30 customers)
+curl -X POST   http://<stedi-host>:4567/simulation   # start (30 customers); 403 unless the server opted in
 curl           http://<stedi-host>:4567/simulation   # true while it is running
 curl -X DELETE http://<stedi-host>:4567/simulation   # stop
 ```
 
-In Kubernetes, run these from inside the cluster or after `kubectl port-forward deployment/stedi 4567:4567 -n <your-namespace>` (then use `localhost` as the host).
+Stopping takes effect when the simulator finishes its current pass through the customers, which can take up to about a minute; until then `GET /simulation` still returns `true`.
+
+In Kubernetes, run these from inside the cluster or after `kubectl port-forward deployment/stedi 4567:4567 -n <your-namespace>` (then use `localhost` as the host, and open `http://localhost:4567/timer.html` for the toggle).
 
 ### What it produces
 
@@ -96,7 +103,7 @@ kubectl exec -it kafka-0 -n <your-namespace> -- \
 kubectl logs deployment/stedi -n <your-namespace>
 ```
 
-Turn the simulator off when you are not using it, because it keeps generating data: remove `SIMULATION` (or set it to `false`) and redeploy, or call `curl -X DELETE .../simulation`.
+Turn the simulator off when you are not using it, because it keeps generating data: use the timer page toggle, call `curl -X DELETE .../simulation`, or remove `SIMULATION` (or set it to `false`) and redeploy.
 
 ## Kubernetes Image Pull Authentication
 

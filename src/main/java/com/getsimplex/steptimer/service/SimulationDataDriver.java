@@ -48,7 +48,7 @@ public class SimulationDataDriver {
         remoteSession=session;
     }
 
-    public static synchronized void generateTestCustomers(int numberOfUsers) {
+    public static synchronized int generateTestCustomers(int numberOfUsers) {
         testCustomers.clear();
         int nextCustomerAge = 55;
         for (int i = 0; i < numberOfUsers - 1; i++) {
@@ -100,7 +100,7 @@ public class SimulationDataDriver {
                 System.out.println(e.getMessage());
             }
         }
-
+        return testCustomers.size();
     }
 
     // Builds a valid-looking phone number for the region from libphonenumber's example number, made unique by index
