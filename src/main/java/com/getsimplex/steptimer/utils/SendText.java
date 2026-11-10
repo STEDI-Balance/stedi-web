@@ -25,6 +25,13 @@ public class SendText {
         }
     }
 
+    /** True when Twilio settings exist, so texts can actually be sent (false on most local computers). */
+    public static boolean isConfigured(){
+        return ACCOUNT_SID != null && !ACCOUNT_SID.isEmpty()
+                && AUTH_TOKEN != null && !AUTH_TOKEN.isEmpty()
+                && TWILIO_PHONE != null && !TWILIO_PHONE.isEmpty();
+    }
+
     public static void send(String destinationPhone, String text, String region) throws Exception{
 
         String formattedPhone = getFormattedPhone(destinationPhone, region);

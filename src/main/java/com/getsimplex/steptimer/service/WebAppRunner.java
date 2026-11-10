@@ -81,6 +81,29 @@ public class WebAppRunner {
         post("/sensorUpdates", (req, res)-> WebServiceHandler.routeDeviceRequest(req));
         //post("/generateHistoricalGraph", (req, res)->routePdfRequest(req, res));
         //get("/readPdf", (req, res)->routePdfRequest(req, res));
+        // Phone-only sign-up, step 1: text a 4-digit code to a phone with no account yet.
+        post("/signup/start", (req, res) -> {
+            res.type("text/plain");
+            try {
+                SignupService.start(req.body());
+                res.status(200);
+                return "Ok";
+            } catch (IllegalArgumentException | com.google.i18n.phonenumbers.NumberParseException e) {
+                res.status(400);   // bad input: missing or unreadable phone number
+                return "A valid phone number is required";
+            } catch (AlreadyExistsException e) {
+                res.status(409);   // conflict: this phone already has an account
+                return e.getMessage();
+            } catch (SignupService.TooSoonException e) {
+                res.status(429);   // too many requests: wait before asking again
+                return e.getMessage();
+            } catch (Exception e) {
+                logger.severe("Error in /signup/start: " + e.getMessage());
+                res.status(500);
+                return "Unable to start sign-up";
+            }
+        });
+
         post("/user", (req, res)-> {
             String response="Error creating user";
             try {
