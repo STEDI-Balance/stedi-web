@@ -104,6 +104,29 @@ public class WebAppRunner {
             }
         });
 
+        // Phone-only sign-up, step 2: check the code, create the account, return a session token.
+        post("/signup/verify", (req, res) -> {
+            res.type("text/plain");
+            try {
+                String token = SignupService.verify(req.body());
+                res.status(200);
+                return token;
+            } catch (com.google.i18n.phonenumbers.NumberParseException e) {
+                res.status(400);
+                return "A valid phone number is required";
+            } catch (IllegalArgumentException | SignupService.InvalidCodeException e) {
+                res.status(400);   // a field is missing or wrong, or the code is wrong/expired
+                return e.getMessage();
+            } catch (AlreadyExistsException e) {
+                res.status(409);   // phone, username or email already belongs to someone
+                return e.getMessage();
+            } catch (Exception e) {
+                logger.severe("Error in /signup/verify: " + e.getMessage());
+                res.status(500);
+                return "Unable to create account";
+            }
+        });
+
         post("/user", (req, res)-> {
             String response="Error creating user";
             try {
