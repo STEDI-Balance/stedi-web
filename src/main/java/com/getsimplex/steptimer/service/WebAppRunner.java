@@ -127,6 +127,62 @@ public class WebAppRunner {
             }
         });
 
+        // Account recovery, step 1: email a code. Always the same answer, so nobody can
+        // use this to find out which emails have accounts (even if sending fails).
+        post("/recovery/start", (req, res) -> {
+            res.type("text/plain");
+            try {
+                RecoveryService.start(req.body());
+            } catch (Exception e) {
+                logger.severe("Error in /recovery/start: " + e.getMessage());
+            }
+            res.status(200);
+            return RecoveryService.START_REPLY;
+        });
+
+        // Account recovery, step 2: email code is right -> text a code to the new phone.
+        post("/recovery/verify", (req, res) -> {
+            res.type("text/plain");
+            try {
+                RecoveryService.verify(req.body());
+                res.status(200);
+                return "Ok";
+            } catch (com.google.i18n.phonenumbers.NumberParseException e) {
+                res.status(400);
+                return "A valid phone number is required";
+            } catch (IllegalArgumentException | SignupService.InvalidCodeException e) {
+                res.status(400);
+                return e.getMessage();
+            } catch (AlreadyExistsException e) {
+                res.status(409);
+                return e.getMessage();
+            } catch (Exception e) {
+                logger.severe("Error in /recovery/verify: " + e.getMessage());
+                res.status(500);
+                return "Unable to continue recovery";
+            }
+        });
+
+        // Account recovery, step 3: text code is right -> move the account, return a session token.
+        post("/recovery/confirm", (req, res) -> {
+            res.type("text/plain");
+            try {
+                String token = RecoveryService.confirm(req.body());
+                res.status(200);
+                return token;
+            } catch (IllegalArgumentException | SignupService.InvalidCodeException e) {
+                res.status(400);
+                return e.getMessage();
+            } catch (AlreadyExistsException e) {
+                res.status(409);
+                return e.getMessage();
+            } catch (Exception e) {
+                logger.severe("Error in /recovery/confirm: " + e.getMessage());
+                res.status(500);
+                return "Unable to finish recovery";
+            }
+        });
+
         post("/user", (req, res)-> {
             String response="Error creating user";
             try {

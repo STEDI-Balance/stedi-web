@@ -80,7 +80,7 @@ public class SignupService {
         SignupCode signupCode = new SignupCode();
         signupCode.setPhone(phone);
         signupCode.setRegion(region);
-        signupCode.setCode(String.format("%04d", random.nextInt(10_000)));
+        signupCode.setCode(newFourDigitCode());
         signupCode.setCreatedAt(now);
         signupCode.setExpiresAt(now + CODE_LIFETIME_MS);
         signupCode.setAttempts(0);
@@ -198,9 +198,10 @@ public class SignupService {
     }
 
     // ---------------------------------------------------------------- small helpers
+    // (not private: RecoveryService in the same package uses them too)
 
     /** Checks the phone is real and returns the server's standard spelling, e.g. +1801-555-0100. */
-    private static String standardPhone(String rawPhone, String region) throws Exception {
+    static String standardPhone(String rawPhone, String region) throws Exception {
         if (rawPhone == null || rawPhone.isBlank()) {
             throw new IllegalArgumentException("A phone number is required");
         }
@@ -213,27 +214,40 @@ public class SignupService {
         return SendText.getFormattedPhone(rawPhone, region);
     }
 
-    private static long phoneDigits(String phone) {
+    static long phoneDigits(String phone) {
         return Long.parseLong(phone.replaceAll("[^0-9]", ""));   // +1801-555-0100 becomes 18015550100
     }
 
-    private static boolean phoneIsRegistered(String phone) throws Exception {
+    static boolean phoneIsRegistered(String phone) throws Exception {
         long digits = phoneDigits(phone);
         List<User> users = JedisData.getEntitiesByScore(User.class, digits, digits);
         return !users.isEmpty();
     }
 
     /** Older accounts use their email as the username; newer ones are found through the email index. */
-    private static boolean emailIsTaken(String email) throws Exception {
-        return JedisData.getEntityById(User.class, email).isPresent()
-                || !JedisData.getEntitiesByIndex(User.class, "Email", email).isEmpty();
+    static boolean emailIsTaken(String email) throws Exception {
+        return findUserByEmail(email).isPresent();
     }
 
-    private static String regionOrUS(String region) {
+    static Optional<User> findUserByEmail(String email) throws Exception {
+        Optional<User> byUserName = JedisData.getEntityById(User.class, email);
+        if (byUserName.isPresent()) {
+            return byUserName;
+        }
+        List<User> byIndex = JedisData.getEntitiesByIndex(User.class, "Email", email);
+        return byIndex.isEmpty() ? Optional.empty() : Optional.of(byIndex.get(0));
+    }
+
+    /** 0000 to 9999, from SecureRandom so nobody can predict it. */
+    static String newFourDigitCode() {
+        return String.format("%04d", random.nextInt(10_000));
+    }
+
+    static String regionOrUS(String region) {
         return (region == null || region.isBlank()) ? "US" : region.trim().toUpperCase();
     }
 
-    private static String clean(String value) {
+    static String clean(String value) {
         return value == null ? "" : value.trim();
     }
 }
