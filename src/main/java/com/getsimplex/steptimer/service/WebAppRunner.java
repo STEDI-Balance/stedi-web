@@ -201,6 +201,12 @@ public class WebAppRunner {
                     return "Deleted";
                 }));
 
+        // Balance preferences (one set per profile).
+        get("/profiles/:id/preferences", (req, res) ->
+                withLoggedInUser(req, res, user -> PreferencesService.get(user, req.params(":id"))));
+        put("/profiles/:id/preferences", (req, res) ->
+                withLoggedInUser(req, res, user -> PreferencesService.put(user, req.params(":id"), req.body())));
+
         post("/user", (req, res)-> {
             String response="Error creating user";
             try {

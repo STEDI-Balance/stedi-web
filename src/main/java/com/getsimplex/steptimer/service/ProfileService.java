@@ -111,7 +111,8 @@ public class ProfileService {
         }
         JedisData.deleteJedis(Profile.class, profileId);                         // ProfileMap + Profile sorted set
         JedisClient.zrem(ownerIndex(profile.getOwnerUserName()), profileId);     // the owner's list
-        // Steps 3 and 4 add this person's preferences and tests; they get deleted here too.
+        PreferencesService.deleteFor(profileId);                                 // their balance answers
+        // Step 4 adds this person's tests; they get deleted here too.
     }
 
     // ---------------------------------------------------------------- helpers
