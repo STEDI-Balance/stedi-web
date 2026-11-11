@@ -220,6 +220,22 @@ public class WebAppRunner {
         get("/tests/:testId", (req, res) ->
                 withLoggedInUser(req, res, user -> BalanceTestService.getOne(user, req.params(":testId"))));
 
+        // Paired STEDI sensors (Figma "Devices").
+        get("/devices", (req, res) ->
+                withLoggedInUser(req, res, user -> DeviceService.list(user)));
+        post("/devices", (req, res) ->
+                withLoggedInUser(req, res, user -> {
+                    res.status(201);
+                    return DeviceService.pair(user, req.body());
+                }));
+        patch("/devices/:deviceId", (req, res) ->
+                withLoggedInUser(req, res, user -> DeviceService.update(user, req.params(":deviceId"), req.body())));
+        delete("/devices/:deviceId", (req, res) ->
+                withLoggedInUser(req, res, user -> {
+                    DeviceService.unpair(user, req.params(":deviceId"));
+                    return "Unpaired";
+                }));
+
         post("/user", (req, res)-> {
             String response="Error creating user";
             try {

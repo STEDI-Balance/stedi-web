@@ -90,6 +90,7 @@ public class BalanceTestService {
         store(test);
         // Remember clientTestId -> testId, so a resend finds this test.
         JedisClient.zadd("BalanceTestByClientId-" + clientIdKey(test.getProfileId(), clientTestId), 0, test.getTestId());
+        DeviceService.markUsed(user, test.getDeviceId(), test.getCompletedAt());   // Devices screen: "last used"
         return new SaveResult(test, true);
     }
 
