@@ -112,7 +112,7 @@ public class ProfileService {
         JedisData.deleteJedis(Profile.class, profileId);                         // ProfileMap + Profile sorted set
         JedisClient.zrem(ownerIndex(profile.getOwnerUserName()), profileId);     // the owner's list
         PreferencesService.deleteFor(profileId);                                 // their balance answers
-        // Step 4 adds this person's tests; they get deleted here too.
+        BalanceTestService.deleteAllFor(profileId);                              // their test history
     }
 
     // ---------------------------------------------------------------- helpers

@@ -207,6 +207,19 @@ public class WebAppRunner {
         put("/profiles/:id/preferences", (req, res) ->
                 withLoggedInUser(req, res, user -> PreferencesService.put(user, req.params(":id"), req.body())));
 
+        // Two-round Rapid Step Tests (one history per profile).
+        post("/profiles/:id/tests", (req, res) ->
+                withLoggedInUser(req, res, user -> {
+                    BalanceTestService.SaveResult saved = BalanceTestService.save(user, req.params(":id"), req.body());
+                    res.status(saved.created ? 201 : 200);   // 201 = new test saved, 200 = already had it (a resend)
+                    return saved.test;
+                }));
+        get("/profiles/:id/tests", (req, res) ->      // optional ?from=&to= in milliseconds
+                withLoggedInUser(req, res, user ->
+                        BalanceTestService.list(user, req.params(":id"), req.queryParams("from"), req.queryParams("to"))));
+        get("/tests/:testId", (req, res) ->
+                withLoggedInUser(req, res, user -> BalanceTestService.getOne(user, req.params(":testId"))));
+
         post("/user", (req, res)-> {
             String response="Error creating user";
             try {
