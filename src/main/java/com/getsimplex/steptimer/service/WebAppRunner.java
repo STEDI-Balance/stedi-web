@@ -183,6 +183,24 @@ public class WebAppRunner {
             }
         });
 
+        // Family profiles. Every route needs a logged-in user and only touches that user's profiles.
+        get("/profiles", (req, res) ->
+                withLoggedInUser(req, res, user -> ProfileService.list(user)));
+        post("/profiles", (req, res) ->
+                withLoggedInUser(req, res, user -> {
+                    res.status(201);   // 201 Created
+                    return ProfileService.addFamilyMember(user, req.body());
+                }));
+        get("/profiles/:id", (req, res) ->
+                withLoggedInUser(req, res, user -> ProfileService.getOwned(user, req.params(":id"))));
+        patch("/profiles/:id", (req, res) ->
+                withLoggedInUser(req, res, user -> ProfileService.update(user, req.params(":id"), req.body())));
+        delete("/profiles/:id", (req, res) ->
+                withLoggedInUser(req, res, user -> {
+                    ProfileService.delete(user, req.params(":id"));
+                    return "Deleted";
+                }));
+
         post("/user", (req, res)-> {
             String response="Error creating user";
             try {
@@ -985,6 +1003,48 @@ public class WebAppRunner {
             return "Unable to find user with phone number: "+phoneNumber;
         } else{
             return "Ok";
+        }
+    }
+
+    /** The work a route does once we know who is logged in. */
+    private interface LoggedInAction {
+        Object run(User user) throws Exception;
+    }
+
+    /**
+     * Shared wrapper for the newer routes (profiles, preferences, tests):
+     *   1. check the session token -> 401 if missing or invalid
+     *   2. run the route's work
+     *   3. turn the answer into JSON, and each kind of error into its status code
+     */
+    private static Object withLoggedInUser(Request req, Response res, LoggedInAction action) {
+        res.type("application/json");
+        User user;
+        try {
+            Optional<User> found = userFilter(req, res);
+            if (found.isEmpty()) throw new Exception("No user");
+            user = found.get();
+        } catch (Exception e) {
+            res.status(401);   // Unauthorized: no valid session token
+            return gson.toJson(new ErrorPayload("Please log in"));
+        }
+
+        try {
+            Object result = action.run(user);
+            return result instanceof String ? gson.toJson(Map.of("message", result)) : gson.toJson(result);
+        } catch (IllegalArgumentException e) {
+            res.status(400);
+            return gson.toJson(new ErrorPayload(e.getMessage()));
+        } catch (NotFoundException e) {
+            res.status(404);
+            return gson.toJson(new ErrorPayload(e.getMessage()));
+        } catch (AlreadyExistsException e) {
+            res.status(409);
+            return gson.toJson(new ErrorPayload(e.getMessage()));
+        } catch (Exception e) {
+            logger.severe("Error in " + req.requestMethod() + " " + req.pathInfo() + ": " + e.getMessage());
+            res.status(500);
+            return gson.toJson(new ErrorPayload("Something went wrong"));
         }
     }
 
