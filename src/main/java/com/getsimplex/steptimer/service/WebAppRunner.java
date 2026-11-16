@@ -62,19 +62,33 @@ public class WebAppRunner {
             response.header("Access-Control-Allow-Headers", "Content-Type,Authorization,X-Requested-With,Content-Length,Accept,Origin,");
             response.header("Access-Control-Allow-Credentials", "true");
         });
+        // "Contact us" form. Still answers "sent" like before, so older apps keep working;
+        // now also accepts category + replyEmail, and gives real status codes when something's wrong.
         post("/contact", (req, res)->{
-            userFilter(req,res);
+            res.type("text/plain");
+            Optional<User> user;
             try {
-                EmailMessage emailMessage = gson.fromJson(req.body(), EmailMessage.class);
-                SendGmail.send(emailMessage.getToAddress(), emailMessage.getMessageText(), emailMessage.getSubject(), emailMessage.getName());
-
-                System.out.println(req.body());
-                res.status(200);
-
-            }catch(Exception e){
-                return null;
+                user = userFilter(req, res);
+                if (user.isEmpty()) throw new Exception("No user");
+            } catch (Exception e) {
+                res.status(401);
+                return "Please log in";
             }
-            return "sent";
+            try {
+                ContactService.send(user.get(), req.body());
+                res.status(200);
+                return "sent";
+            } catch (IllegalArgumentException e) {
+                res.status(400);
+                return e.getMessage();
+            } catch (ContactService.TooManyMessagesException e) {
+                res.status(429);
+                return e.getMessage();
+            } catch (Exception e) {
+                logger.severe("Error in /contact: " + e.getMessage());
+                res.status(500);
+                return "Unable to send message";
+            }
         });
 		//secure("/Applications/steptimerwebsocket/keystore.jks","password","/Applications/steptimerwebsocket/keystore.jks","password");
 
