@@ -1028,7 +1028,11 @@ public class WebAppRunner {
                 oneTimePassword.setPhoneNumber(phoneNumber);
                 OneTimePasswordService.saveOneTimePassword(oneTimePassword);
 
-                if(whatsApp && !user.getWhatsAppPhone().isEmpty()){
+                if (!SendText.isConfigured()) {
+                    // Local runs have no Twilio settings: skip the text, read the code from Redis (OneTimePasswordMap).
+                    logger.info("Twilio is not configured, so no SMS was sent. The sign-in code is in Redis (OneTimePasswordMap).");
+                }
+                else if(whatsApp && !user.getWhatsAppPhone().isEmpty()){
                     SendWhatsApp.send(phoneNumber, TWILIO_OTP_MESSAGE_SID, String.valueOf(randomNum), region);
                 }
                 else{
