@@ -149,7 +149,7 @@ public class BalanceTestService {
      * stopped:  rounds in order starting at 1; every round but the last has 30 steps,
      *           the last has 0 to 29 (Figma "Test stopped": "Before you stopped 18/30").
      */
-    private static void checkRounds(BalanceTest request) {
+    static void checkRounds(BalanceTest request) {
         String status = request.getStatus() == null ? "" : request.getStatus().trim().toLowerCase();
         if (!status.equals(BalanceTest.COMPLETE) && !status.equals(BalanceTest.STOPPED)) {
             throw new IllegalArgumentException("status must be \"complete\" or \"stopped\"");
@@ -190,7 +190,7 @@ public class BalanceTestService {
     }
 
     /** Times must make sense: not in the future, not ancient, and round 2 starts after round 1 ends. */
-    private static void checkTiming(BalanceTest test) {
+    static void checkTiming(BalanceTest test) {
         long now = System.currentTimeMillis();
         if (test.getStartedAt() < now - MAX_AGE_MS || test.getCompletedAt() > now + CLOCK_SLACK_MS) {
             throw new IllegalArgumentException("Test times must be within the last 30 days");

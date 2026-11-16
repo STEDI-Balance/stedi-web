@@ -35,9 +35,9 @@ public class SignupService {
 
     // Figma: "Letters, numbers and underscores only." 3 to 30 characters.
     // No "@" allowed, so a new username can never clash with an older account whose username is an email.
-    private static final Pattern USERNAME_RULE = Pattern.compile("^[a-z0-9_]{3,30}$");
+    static final Pattern USERNAME_RULE = Pattern.compile("^[a-z0-9_]{3,30}$");
     // A simple "looks like an email" check: something@something.something
-    private static final Pattern EMAIL_RULE = Pattern.compile("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$");
+    static final Pattern EMAIL_RULE = Pattern.compile("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$");
 
     /** Asking for a new code too soon. The route turns it into HTTP 429. */
     public static class TooSoonException extends Exception {

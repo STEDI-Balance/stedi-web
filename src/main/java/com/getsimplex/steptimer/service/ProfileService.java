@@ -118,7 +118,7 @@ public class ProfileService {
     // ---------------------------------------------------------------- helpers
 
     /** Checks each field that was sent, then copies it onto the profile. Fields left out are not touched. */
-    private static void applyChanges(Profile profile, ProfileRequest request) {
+    static void applyChanges(Profile profile, ProfileRequest request) {
         if (request.getFullName() != null) {
             if (blank(request.getFullName()) || request.getFullName().trim().length() > 80) {
                 throw new IllegalArgumentException("Full name must be 1-80 characters");

@@ -62,7 +62,7 @@ public class PreferencesService {
     }
 
     /** Lower-cases the answer and checks it's one of the allowed choices. */
-    private static String pick(String value, Set<String> allowed, String fieldName, boolean required) {
+    static String pick(String value, Set<String> allowed, String fieldName, boolean required) {
         if (value == null || value.trim().isEmpty()) {
             if (required) throw new IllegalArgumentException(fieldName + " is required");
             return null;
