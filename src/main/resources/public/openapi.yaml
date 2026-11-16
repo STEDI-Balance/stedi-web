@@ -19,6 +19,18 @@ info:
     The API supports 2FA via SMS and WhatsApp:
     - Request OTP: `/twofactorlogin/{phoneNumber}`
     - Verify OTP: `/twofactorlogin` (POST with phoneNumber and oneTimePassword)
+
+    ## Phone-only accounts, family profiles and two-round tests
+    Added alongside the routes above (none of the older routes changed):
+    - **Sign-up without a password:** `/signup/start` texts a 4-digit code, `/signup/verify` checks it,
+      creates the account (with a required recovery email) and returns a session token.
+    - **Account recovery** for a new phone number: `/recovery/start` (email code) → `/recovery/verify`
+      (code texted to the new phone) → `/recovery/confirm` (account moved, session token returned).
+    - **Profiles:** one account holds the account holder's own profile plus family members, who have no
+      login of their own. Preferences and tests belong to a profile (`/profiles/{id}/...`).
+    - **Ownership:** every profile, preferences, test and device route only works for the account that
+      owns the item. Anything else (missing or someone else's) answers 404.
+    - **Codes** are 4 digits, last 10 minutes and allow 5 wrong guesses.
   version: 1.0.0
 
 servers:
@@ -185,6 +197,165 @@ components:
           type: string
           example: "M"
           description: Customer's gender
+
+    RapidStepTest:
+      type: object
+      description: One round saved by the older POST /rapidsteptest (returned by GET /stephistory/{email}).
+      properties:
+        customer: { type: string, format: email }
+        startTime: { type: integer, format: int64 }
+        stopTime: { type: integer, format: int64 }
+        testTime: { type: integer, format: int64 }
+        stepPoints: { type: array, items: { type: integer, format: int64 } }
+        totalSteps: { type: integer, example: 30 }
+        deviceId: { type: string, nullable: true }
+        feelingScore: { type: integer, nullable: true }
+
+    ErrorPayload:
+      type: object
+      description: The error body returned by the profile, preferences, test and device routes.
+      properties:
+        errorMessage:
+          type: string
+          example: Profile not found
+
+    Profile:
+      type: object
+      properties:
+        profileId: { type: string, example: 3f9a1c2e-5b7d-4e8f-9a0b-1c2d3e4f5a6b }
+        ownerUserName: { type: string, example: alexmorgan }
+        self: { type: boolean, description: True for the account holder's own profile (created automatically) }
+        fullName: { type: string, example: Jordan Morgan }
+        birthDay: { type: string, format: date, example: "1960-09-08", nullable: true }
+        gender: { type: string, enum: [woman, man, non_binary, prefer_not_to_say], nullable: true }
+        relationship: { type: string, enum: [self, parent, child, partner, sibling, grandparent, friend, other] }
+        heightCm: { type: number, example: 178.0, nullable: true }
+        weightKg: { type: number, example: 80.5, nullable: true }
+        avatarColor: { type: string, enum: [green, coral, violet, sky] }
+        createdAt: { type: integer, format: int64, example: 1794300000000 }
+
+    ProfileRequest:
+      type: object
+      description: |
+        For POST (add a family member) fullName and relationship are required.
+        For PATCH every field is optional; fields left out are not changed.
+      properties:
+        fullName: { type: string, maxLength: 80, example: Jordan Morgan }
+        birthDay: { type: string, format: date, example: "1960-09-08" }
+        gender: { type: string, enum: [woman, man, non_binary, prefer_not_to_say] }
+        relationship: { type: string, enum: [parent, child, partner, sibling, grandparent, friend, other] }
+        heightCm: { type: number, minimum: 40, maximum: 250 }
+        weightKg: { type: number, minimum: 2, maximum: 350 }
+        clearHealthMetrics: { type: boolean, description: true removes height and weight ("Not shared") }
+
+    BalancePreferences:
+      type: object
+      properties:
+        profileId: { type: string }
+        feeling: { type: string, enum: [poor, fair, ok, good, great], description: "How do you feel about your balance today?" }
+        improveGoal: { type: integer, minimum: 1, maximum: 10, description: "How much do you want to improve?" }
+        referralSource: { type: string, enum: [clinician, physical_therapist, friend_family, social_media, other], nullable: true }
+        updatedAt: { type: integer, format: int64 }
+
+    TestRound:
+      type: object
+      required: [round, startTime, stepPoints]
+      properties:
+        round: { type: integer, enum: [1, 2] }
+        startTime: { type: integer, format: int64, description: When the round started (ms since 1970) }
+        stepPoints:
+          type: array
+          description: Milliseconds between steps; the first is from startTime to step 1 (same meaning as RapidStepTest). 30 for a finished round.
+          items: { type: integer, format: int64, minimum: 1, maximum: 120000 }
+          example: [820, 790, 805]
+        stopTime: { type: integer, format: int64, readOnly: true, description: startTime + all stepPoints }
+        durationMs: { type: integer, format: int64, readOnly: true }
+        avgIntervalMs: { type: integer, format: int64, readOnly: true, nullable: true }
+
+    BalanceTest:
+      type: object
+      properties:
+        testId: { type: string, readOnly: true }
+        clientTestId: { type: string, description: A UUID made by the app. Sending the same one again returns the first copy instead of saving a duplicate. }
+        profileId: { type: string, readOnly: true }
+        userName: { type: string, readOnly: true }
+        deviceId: { type: string, nullable: true, example: STEDI-0241, description: Defaults to the account's active device }
+        status: { type: string, enum: [complete, stopped], description: "complete = 2 rounds of 30 steps; stopped = ended early (saved, never scored)" }
+        rounds: { type: array, items: { $ref: '#/components/schemas/TestRound' } }
+        startedAt: { type: integer, format: int64, readOnly: true }
+        completedAt: { type: integer, format: int64, readOnly: true }
+        stepCount: { type: integer, readOnly: true, example: 60 }
+        totalTimeMs: { type: integer, format: int64, readOnly: true, example: 48200 }
+        avgIntervalMs: { type: integer, format: int64, readOnly: true, nullable: true, example: 803 }
+        score: { type: number, readOnly: true, nullable: true, description: 0-100 balance score. Null until the clinical formula is added to ScoreCalculator. }
+        scoreVersion: { type: string, readOnly: true, example: pending }
+
+    BalanceTestRequest:
+      type: object
+      required: [clientTestId, status, rounds]
+      properties:
+        clientTestId: { type: string, pattern: "^[A-Za-z0-9-]{8,64}$", example: 9b2e7c1a-3d4f-4a5b-8c6d-7e8f9a0b1c2d }
+        status: { type: string, enum: [complete, stopped] }
+        deviceId: { type: string, example: STEDI-0241 }
+        rounds:
+          type: array
+          minItems: 1
+          maxItems: 2
+          items:
+            type: object
+            required: [round, startTime, stepPoints]
+            properties:
+              round: { type: integer, enum: [1, 2] }
+              startTime: { type: integer, format: int64 }
+              stepPoints: { type: array, items: { type: integer, format: int64 } }
+
+    UserDevice:
+      type: object
+      properties:
+        deviceId: { type: string, example: STEDI-0241 }
+        ownerUserName: { type: string }
+        nickname: { type: string, example: "STEDI · 0241" }
+        location: { type: string, nullable: true, example: Living room }
+        active: { type: boolean, description: The device tests use (also copied to User.deviceNickName) }
+        pairedAt: { type: integer, format: int64 }
+        lastUsedAt: { type: integer, format: int64, nullable: true }
+        connectedNow: { type: boolean, description: True if the sensor sent a reading in the last 2 minutes }
+
+  responses:
+    Unauthorized:
+      description: Missing or invalid session token
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorPayload' }
+    BadRequest:
+      description: A field is missing or not allowed (errorMessage says which)
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorPayload' }
+    NotFound:
+      description: Doesn't exist, or belongs to another account
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorPayload' }
+    Conflict:
+      description: Already exists
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorPayload' }
+
+  parameters:
+    ProfileId:
+      name: id
+      in: path
+      required: true
+      schema: { type: string }
+      description: profileId from GET /profiles
+    DeviceId:
+      name: deviceId
+      in: path
+      required: true
+      schema: { type: string }
+      example: STEDI-0241
 
 paths:
   /simulation:
@@ -1041,3 +1212,356 @@ paths:
       responses:
         '200':
           description: Push token retrieved successfully
+
+  # ---------------------------------------------------------------------------------------------
+  # Phone-only sign-up and account recovery (plain-text replies)
+  # ---------------------------------------------------------------------------------------------
+  /signup/start:
+    post:
+      tags: [Sign-up & recovery]
+      summary: Text a sign-up code to a new phone number
+      description: |
+        Sends a 4-digit code to a phone number that has no account yet. Any common style is accepted
+        (8015550100, 801-555-0100, (801) 555-0100, +1 801 555 0100). Asking again replaces the old code.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [phone]
+              properties:
+                phone: { type: string, example: 801-555-0100 }
+                region: { type: string, default: US }
+      responses:
+        '200': { description: Code sent, content: { text/plain: { schema: { type: string, example: Ok } } } }
+        '400': { description: Missing or invalid phone number }
+        '409': { description: The phone number already has an account }
+        '429': { description: A code was sent less than 30 seconds ago }
+
+  /signup/verify:
+    post:
+      tags: [Sign-up & recovery]
+      summary: Check the code and create the account
+      description: |
+        Creates a password-less account (SMS login only) plus the matching Customer, and returns a
+        session token. Fields are checked before the code, so a typo doesn't use up a guess.
+        A 409 keeps the code so the person can fix the field and try again.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [phone, code, userName, fullName, recoveryEmail, agreedToTerms]
+              properties:
+                phone: { type: string, example: 801-555-0100 }
+                region: { type: string, default: US }
+                code: { type: string, example: "0482" }
+                userName: { type: string, pattern: "^[a-z0-9_]{3,30}$", example: alexmorgan }
+                fullName: { type: string, example: Alex Morgan }
+                recoveryEmail: { type: string, format: email, example: alex@example.com }
+                agreedToTerms: { type: boolean, example: true }
+                wantsTips: { type: boolean, example: false }
+      responses:
+        '200': { description: "Account created; the body is the session token", content: { text/plain: { schema: { type: string, format: uuid } } } }
+        '400': { description: "A field is invalid, or the code is wrong/expired (after 5 wrong guesses the code is deleted)" }
+        '409': { description: "The phone, username or recovery email is already used" }
+
+  /recovery/start:
+    post:
+      tags: [Sign-up & recovery]
+      summary: Email a recovery code
+      description: Always gives the same reply, whether or not the email belongs to an account.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [recoveryEmail]
+              properties:
+                recoveryEmail: { type: string, format: email }
+      responses:
+        '200': { description: Same reply every time, content: { text/plain: { schema: { type: string, example: "If that email belongs to an account, we sent it a code." } } } }
+
+  /recovery/verify:
+    post:
+      tags: [Sign-up & recovery]
+      summary: Check the email code and text a code to the new phone
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [recoveryEmail, code, newPhone]
+              properties:
+                recoveryEmail: { type: string, format: email }
+                code: { type: string, example: "4518" }
+                newPhone: { type: string, example: 801-555-0177 }
+                region: { type: string, default: US }
+      responses:
+        '200': { description: Code texted to the new phone }
+        '400': { description: "Invalid phone, or the email code is wrong/expired" }
+        '409': { description: The new phone already belongs to an account }
+
+  /recovery/confirm:
+    post:
+      tags: [Sign-up & recovery]
+      summary: Check the text code, move the account to the new phone, and log in
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [recoveryEmail, code]
+              properties:
+                recoveryEmail: { type: string, format: email }
+                code: { type: string, example: "7731" }
+      responses:
+        '200': { description: "Account moved; the body is a session token", content: { text/plain: { schema: { type: string, format: uuid } } } }
+        '400': { description: "The code is wrong/expired, or the recovery can't be finished" }
+        '409': { description: The new phone was taken in the meantime }
+
+  # ---------------------------------------------------------------------------------------------
+  # Profiles (the account holder + family members)
+  # ---------------------------------------------------------------------------------------------
+  /profiles:
+    get:
+      tags: [Profiles]
+      summary: List this account's profiles (the account holder first)
+      description: The account holder's own profile is created from their Customer record the first time.
+      security: [ { sessionToken: [] } ]
+      responses:
+        '200':
+          description: Profiles
+          content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/Profile' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    post:
+      tags: [Profiles]
+      summary: Add a family member (at most 10 profiles per account)
+      security: [ { sessionToken: [] } ]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/ProfileRequest' } } }
+      responses:
+        '201':
+          description: Family member added
+          content: { application/json: { schema: { $ref: '#/components/schemas/Profile' } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /profiles/{id}:
+    parameters: [ { $ref: '#/components/parameters/ProfileId' } ]
+    get:
+      tags: [Profiles]
+      summary: Get one profile
+      security: [ { sessionToken: [] } ]
+      responses:
+        '200': { description: The profile, content: { application/json: { schema: { $ref: '#/components/schemas/Profile' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    patch:
+      tags: [Profiles]
+      summary: Edit a profile (only the fields sent)
+      description: Edits to the account holder's own profile are also copied to their Customer record.
+      security: [ { sessionToken: [] } ]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/ProfileRequest' } } }
+      responses:
+        '200': { description: Updated profile, content: { application/json: { schema: { $ref: '#/components/schemas/Profile' } } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    delete:
+      tags: [Profiles]
+      summary: Delete a family member, with their preferences and tests
+      description: The account holder's own profile can't be deleted (400).
+      security: [ { sessionToken: [] } ]
+      responses:
+        '200': { description: Deleted }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /profiles/{id}/preferences:
+    parameters: [ { $ref: '#/components/parameters/ProfileId' } ]
+    get:
+      tags: [Balance preferences]
+      summary: Get a profile's balance answers
+      description: Before anything is saved, only profileId is returned.
+      security: [ { sessionToken: [] } ]
+      responses:
+        '200': { description: The answers, content: { application/json: { schema: { $ref: '#/components/schemas/BalancePreferences' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    put:
+      tags: [Balance preferences]
+      summary: Save all of a profile's balance answers
+      security: [ { sessionToken: [] } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [feeling, improveGoal]
+              properties:
+                feeling: { type: string, enum: [poor, fair, ok, good, great] }
+                improveGoal: { type: integer, minimum: 1, maximum: 10 }
+                referralSource: { type: string, enum: [clinician, physical_therapist, friend_family, social_media, other] }
+      responses:
+        '200': { description: Saved answers, content: { application/json: { schema: { $ref: '#/components/schemas/BalancePreferences' } } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  # ---------------------------------------------------------------------------------------------
+  # Two-round Rapid Step Tests
+  # ---------------------------------------------------------------------------------------------
+  /profiles/{id}/tests:
+    parameters: [ { $ref: '#/components/parameters/ProfileId' } ]
+    post:
+      tags: [Balance tests]
+      summary: Save a test for this profile
+      description: |
+        complete = rounds 1 and 2 with 30 stepPoints each. stopped = ended early: every round but the
+        last has 30 steps and the last has 0-29 (saved, never scored). Times must be within the last
+        30 days and not in the future. The server works out stopTime, durations, stepCount,
+        totalTimeMs and avgIntervalMs. Safe to resend: the same clientTestId returns the first copy (200).
+      security: [ { sessionToken: [] } ]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/BalanceTestRequest' } } }
+      responses:
+        '201': { description: Test saved, content: { application/json: { schema: { $ref: '#/components/schemas/BalanceTest' } } } }
+        '200': { description: "Already saved (same clientTestId); the first copy is returned", content: { application/json: { schema: { $ref: '#/components/schemas/BalanceTest' } } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    get:
+      tags: [Balance tests]
+      summary: List this profile's tests, newest first
+      security: [ { sessionToken: [] } ]
+      parameters:
+        - { name: from, in: query, required: false, schema: { type: integer, format: int64 }, description: "Only tests finished at or after this time (ms since 1970)" }
+        - { name: to, in: query, required: false, schema: { type: integer, format: int64 }, description: "Only tests finished at or before this time (ms since 1970)" }
+      responses:
+        '200':
+          description: Tests
+          content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/BalanceTest' } } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /tests/{testId}:
+    get:
+      tags: [Balance tests]
+      summary: Get one test
+      security: [ { sessionToken: [] } ]
+      parameters:
+        - { name: testId, in: path, required: true, schema: { type: string } }
+      responses:
+        '200': { description: The test, content: { application/json: { schema: { $ref: '#/components/schemas/BalanceTest' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  # ---------------------------------------------------------------------------------------------
+  # Paired STEDI sensors
+  # ---------------------------------------------------------------------------------------------
+  /devices:
+    get:
+      tags: [Devices]
+      summary: List paired devices (the active one first)
+      security: [ { sessionToken: [] } ]
+      responses:
+        '200':
+          description: Devices
+          content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/UserDevice' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    post:
+      tags: [Devices]
+      summary: Pair a device (the first one paired becomes active)
+      security: [ { sessionToken: [] } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [deviceId]
+              properties:
+                deviceId: { type: string, pattern: "^[A-Za-z0-9._:-]{3,64}$", example: STEDI-0241 }
+                nickname: { type: string, maxLength: 40 }
+                location: { type: string, maxLength: 40, example: Living room }
+      responses:
+        '201': { description: Paired, content: { application/json: { schema: { $ref: '#/components/schemas/UserDevice' } } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /devices/{deviceId}:
+    parameters: [ { $ref: '#/components/parameters/DeviceId' } ]
+    patch:
+      tags: [Devices]
+      summary: Rename, move, or make this the active device
+      security: [ { sessionToken: [] } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                nickname: { type: string, maxLength: 40 }
+                location: { type: string, maxLength: 40 }
+                active: { type: boolean, description: true makes this the device used for tests }
+      responses:
+        '200': { description: Updated device, content: { application/json: { schema: { $ref: '#/components/schemas/UserDevice' } } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    delete:
+      tags: [Devices]
+      summary: Unpair a device
+      description: If it was the active device, the most recently paired remaining device becomes active.
+      security: [ { sessionToken: [] } ]
+      responses:
+        '200': { description: Unpaired }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  # ---------------------------------------------------------------------------------------------
+  # Support
+  # ---------------------------------------------------------------------------------------------
+  /contact:
+    post:
+      tags: [Support]
+      summary: Send a message to STEDI support
+      description: |
+        Older apps send name, toAddress, subject and messageText. The redesigned app can also send
+        category and replyEmail (used when toAddress is left out). Limited to one message per account
+        every 30 seconds. With CONTACT_EMAIL_DISABLED=true the email is logged instead of sent.
+      security: [ { sessionToken: [] } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [messageText]
+              properties:
+                name: { type: string, example: Alex Morgan }
+                toAddress: { type: string, format: email }
+                replyEmail: { type: string, format: email, example: alex.morgan@example.com }
+                category: { type: string, enum: [app, device, account, data] }
+                subject: { type: string, maxLength: 120, example: "Trouble reconnecting STEDI · 0241" }
+                messageText: { type: string, maxLength: 2000 }
+      responses:
+        '200': { description: Sent, content: { text/plain: { schema: { type: string, example: sent } } } }
+        '400': { description: Missing or invalid field }
+        '401': { description: Missing or invalid session token }
+        '429': { description: More than one message in 30 seconds }
