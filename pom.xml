@@ -99,6 +99,13 @@
             <artifactId>slf4j-simple</artifactId>
             <version>1.7.32</version>
         </dependency>
+        <!-- Automated tests (src/test/java). "test" scope: used by "mvn test", never put in the server jar. -->
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <version>5.10.2</version>
+            <scope>test</scope>
+        </dependency>
 
     </dependencies>
     <!-- <repositories>
@@ -123,6 +130,12 @@
                     <source>13</source>
                     <target>13</target>
                 </configuration>
+            </plugin>
+            <plugin>
+                <!-- Runs the JUnit 5 tests during "mvn test" and "mvn package". -->
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>3.2.5</version>
             </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>

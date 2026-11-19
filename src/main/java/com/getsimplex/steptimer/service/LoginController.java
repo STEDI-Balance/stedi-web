@@ -61,6 +61,14 @@ public class LoginController {
             if (userNameIsValid) {
 
                 String storedHashedPassword = currentUser.getPassword();
+
+                // Phone-only accounts (created by /signup/verify) have no password.
+                // They sign in with an SMS code, so password login is always refused for them.
+                if (storedHashedPassword == null || storedHashedPassword.isEmpty()
+                        || attemptedPwValue == null || attemptedPwValue.isEmpty()) {
+                    return false;
+                }
+
                 String attemptedHashedPassword = DigestUtils.sha256Hex(attemptedPwValue);
 
                 if (storedHashedPassword.equals(attemptedHashedPassword)) {

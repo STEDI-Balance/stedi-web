@@ -7,6 +7,15 @@ public class EmailMessage {
 
     private String name;
 
+    // Added for the redesigned "Contact us" form (both optional, so older apps keep working):
+    private String category;     // app | device | account | data  (Figma: "Issues with your device" ...)
+    private String replyEmail;   // where support should reply; used as toAddress when that's left out
+
+    public String getCategory() { return category; }
+    public void setCategory(String category) { this.category = category; }
+
+    public String getReplyEmail() { return replyEmail; }
+    public void setReplyEmail(String replyEmail) { this.replyEmail = replyEmail; }
 
     public String getMessageText() {
         return messageText;

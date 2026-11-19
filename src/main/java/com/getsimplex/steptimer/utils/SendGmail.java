@@ -43,4 +43,39 @@ public class SendGmail {
         }
 
     }
+
+    // ---- Private messages (account recovery codes) -------------------------------------
+    // Unlike send() above, these: read the login from settings instead of the code,
+    // don't CC info@stedi.me (a recovery code must only reach its owner),
+    // and throw an error if sending fails instead of hiding it.
+
+    private static final String CODE_EMAIL_USERNAME = System.getenv("STEDI_EMAIL_USERNAME");
+    private static final String CODE_EMAIL_PASSWORD = System.getenv("STEDI_EMAIL_PASSWORD"); // a Gmail "app password"
+
+    /** True when email settings exist (false on most local computers). */
+    public static boolean isConfigured() {
+        return CODE_EMAIL_USERNAME != null && !CODE_EMAIL_USERNAME.isEmpty()
+                && CODE_EMAIL_PASSWORD != null && !CODE_EMAIL_PASSWORD.isEmpty();
+    }
+
+    public static void sendPrivate(String toAddress, String subject, String messageText) throws Exception {
+        Properties prop = new Properties();
+        prop.put("mail.smtp.host", "smtp.gmail.com");
+        prop.put("mail.smtp.port", "587");
+        prop.put("mail.smtp.auth", "true");
+        prop.put("mail.smtp.starttls.enable", "true");
+
+        Session session = Session.getInstance(prop, new javax.mail.Authenticator() {
+            protected PasswordAuthentication getPasswordAuthentication() {
+                return new PasswordAuthentication(CODE_EMAIL_USERNAME, CODE_EMAIL_PASSWORD);
+            }
+        });
+
+        Message message = new MimeMessage(session);
+        message.setFrom(new InternetAddress(CODE_EMAIL_USERNAME, "STEDI"));
+        message.setRecipients(Message.RecipientType.TO, InternetAddress.parse(toAddress));
+        message.setSubject(subject);
+        message.setText(messageText);
+        Transport.send(message);
+    }
 }
