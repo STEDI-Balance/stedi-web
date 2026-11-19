@@ -37,6 +37,7 @@ public class SaveRapidStepTest {
         // The above adds the data to a redis key called RapidStepTests which is a JSON object with the key being the customer phone number:
         // - the array for each phone number contains all the rapid step tests for the customer
         //- the array is in ascending order of the creation time of the test
+        MdcEstimateService.markDataChanged();//the next scheduled MDC95 recalculation will include this test
 
         //TO-DO: we need to create a concept of a user session when a user has begun a rapid step test
         // then each step we receive will be added to that session in the database
