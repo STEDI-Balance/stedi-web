@@ -110,6 +110,30 @@ public class JedisClient {
             throw new Exception ("Tried setting key:"+key+ " and value:"+value+" without success");
         }
     }
+
+    // Sets the key only if it does not exist, expiring after the given seconds; true if it was set (ex: a lock across pods)
+    public static synchronized boolean setIfAbsent(String key, String value, long expireSeconds) throws Exception{
+        Jedis jedis = jedisPool.getResource();
+        try{
+            String result = jedis.set(key, value, redis.clients.jedis.params.SetParams.setParams().nx().ex(expireSeconds));
+            jedisPool.returnResource(jedis);
+            return "OK".equals(result);
+        } catch(Exception e){
+            jedisPool.returnBrokenResource(jedis);
+            throw new Exception ("Tried setting key:"+key+" if absent without success");
+        }
+    }
+
+    public static synchronized void delete(String key) throws Exception{
+        Jedis jedis = jedisPool.getResource();
+        try{
+            jedis.del(key);
+            jedisPool.returnResource(jedis);
+        } catch(Exception e){
+            jedisPool.returnBrokenResource(jedis);
+            throw new Exception ("Tried deleting key:"+key+" without success");
+        }
+    }
 //
 //    public static synchronized Boolean exists(String key) throws Exception{
 //        int tries =0;

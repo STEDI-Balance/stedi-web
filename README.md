@@ -105,6 +105,24 @@ kubectl logs deployment/stedi -n <your-namespace>
 
 Turn the simulator off when you are not using it, because it keeps generating data: use the timer page toggle, call `curl -X DELETE .../simulation`, or remove `SIMULATION` (or set it to `false`) and redeploy.
 
+## MDC95 (minimum detectable change)
+
+STEDI estimates how much 30-step rapid step test scores vary between tests, for each interval between tests (within one session, 1–3 days, 4–14 days, 15–45 days, more than 45 days). It uses anonymized data from participants who agreed to share anonymous data, so participants can tell whether a change is larger than ordinary measurement variability. The method, assumptions, statuses and limitations are in [docs/mdc95-methodology.md](docs/mdc95-methodology.md), and the endpoints are under `/mdc` in `/openapi.yaml`.
+
+Estimates are recalculated in the background, never on an API request. Configure them with these environment variables:
+
+| Variable | Default | What it does |
+| --- | --- | --- |
+| `MDC_PSEUDONYM_SECRET` | random per process | Secret for the participant pseudonyms used during calculation. Set it so pseudonyms stay stable across restarts. |
+| `STEDI_RESEARCH_ADMINS` | the existing STEDI admin | Comma-separated emails that can recalculate, validate estimates, and see small cohorts |
+| `MDC_RECALC_INTERVAL_MINUTES` | `60` | How often to check for new data and recalculate; `0` turns the timer off |
+| `MDC_MIN_PARTICIPANTS`, `MDC_MIN_PAIRS` | `30`, `30` | Minimum unique participants and eligible pairs before an estimate leaves `insufficient-data` |
+| `MDC_MAX_CI_WIDTH_SECONDS` | not set | If set, an estimate is only `research-supported` when its MDC95 95% CI is no wider than this |
+| `MDC_MIN_PUBLIC_COHORT` | `10` | Cohorts smaller than this are shown to non-admins only as their status |
+| `MDC_SESSION_GAP_MINUTES`, `MDC_MAX_TRIAL_SECONDS`, `MDC_PAIR_SELECTION` | `30`, `600`, `LATEST` | How tests are grouped into sessions and which pair each participant contributes |
+
+`mvn package` now runs the unit tests in `src/test/java`, including the statistical checks.
+
 ## Kubernetes Image Pull Authentication
 
 The dev and prod Kubernetes manifests use IAM-based image pull authentication (node identity) for `gcr.io` images.

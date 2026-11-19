@@ -21,6 +21,10 @@ public class RapidStepTest implements Comparable<RapidStepTest>{
     private Integer feelingScore;
     private String customer;
     private String deviceId;
+    // Optional longitudinal fields; older clients omit them and stored tests stay readable
+    private String protocolVersion;//ex: 30-RST-v1; tests without one are grouped as "unversioned"
+    private String softwareVersion;//app or device firmware version that recorded the test
+    private String healthChangeSinceLastTest;//see HealthChange: NONE, ILLNESS, INJURY, REHABILITATION, OTHER; missing means unknown
 
     @Override
     public int compareTo(RapidStepTest rapidStepTest){
@@ -122,5 +126,29 @@ public class RapidStepTest implements Comparable<RapidStepTest>{
 
     public void setDeviceId(String deviceId) {
         this.deviceId = deviceId;
+    }
+
+    public String getProtocolVersion() {
+        return protocolVersion;
+    }
+
+    public void setProtocolVersion(String protocolVersion) {
+        this.protocolVersion = protocolVersion;
+    }
+
+    public String getSoftwareVersion() {
+        return softwareVersion;
+    }
+
+    public void setSoftwareVersion(String softwareVersion) {
+        this.softwareVersion = softwareVersion;
+    }
+
+    public String getHealthChangeSinceLastTest() {
+        return healthChangeSinceLastTest;
+    }
+
+    public void setHealthChangeSinceLastTest(String healthChangeSinceLastTest) {
+        this.healthChangeSinceLastTest = healthChangeSinceLastTest;
     }
 }

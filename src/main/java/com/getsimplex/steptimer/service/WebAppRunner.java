@@ -33,6 +33,7 @@ public class WebAppRunner {
     private static String TWILIO_OTP_MESSAGE_SID = "";
     private static String TWILIO_SECTOR_MESSAGE_SID;
     private static ConcurrentHashMap<String,RateLimiter> rateLimiters = new ConcurrentHashMap<>();
+    private static ResearchAccessPolicy researchAccessPolicy = ResearchAccessPolicy.fromEnvironment();
 
     static{
         TWILIO_OTP_MESSAGE_SID = System.getenv("TWILIO_OTP_MESSAGE_SID");
@@ -164,6 +165,7 @@ public class WebAppRunner {
                 if (userUpdate.getAgreedToShareAnonymousData() != 0) {
                     existingUser.setAgreedToShareAnonymousData(userUpdate.getAgreedToShareAnonymousData());
                     updated = true;
+                    MdcEstimateService.markDataChanged();//newly shared data is included in the next MDC95 recalculation
                 }
 
                 if (updated) {
@@ -342,6 +344,7 @@ public class WebAppRunner {
                 if (isAdmin || isTheSameUser) { //allow admins to delete any user, and users to delete themselves
                     CreateNewUser.deleteUser(userToDelete.getUserName());
                     CustomerService.deleteCustomer(userToDelete.getPhone());
+                    MdcEstimateService.markDataChanged();//the next MDC95 recalculation leaves this user's tests out
                     return "Deleted user " + userToDelete.getUserName();
                 } else { // if the user is not an admin nor the same user, return unauthorized
                     res.status(401);
@@ -691,6 +694,156 @@ public class WebAppRunner {
             return returnBody;
         }));
 
+        // MDC95: measurement variability estimates from anonymized, aggregated test-retest data (docs/mdc95-methodology.md)
+        get("/mdc/estimates", (req, res) -> {
+            res.type("application/json");
+            Optional<User> user = authenticatedUser(req);
+            if (user.isEmpty()){
+                res.status(401);
+                return gson.toJson(new ErrorPayload("Unauthorized"));
+            }
+            String snapshotId = req.queryParams("snapshotId");
+            Optional<MdcSnapshot> snapshot = snapshotId != null ? MdcEstimateService.snapshot(snapshotId) : MdcEstimateService.latestSnapshot();
+            if (snapshot.isEmpty()){
+                res.status(404);
+                return gson.toJson(new ErrorPayload(snapshotId != null ? "No MDC95 snapshot " + snapshotId : "No MDC95 estimates have been calculated yet"));
+            }
+            return gson.toJson(researchAccessPolicy.forCaller(snapshot.get(), user.get()));
+        });
+
+        get("/mdc/estimates/interval/:days", (req, res) -> {
+            res.type("application/json");
+            Optional<User> user = authenticatedUser(req);
+            if (user.isEmpty()){
+                res.status(401);
+                return gson.toJson(new ErrorPayload("Unauthorized"));
+            }
+            double days;
+            try {
+                days = Double.parseDouble(req.params(":days"));
+                if (!Double.isFinite(days) || days < 0){
+                    throw new NumberFormatException();
+                }
+            } catch (NumberFormatException e){
+                res.status(400);
+                return gson.toJson(new ErrorPayload("days must be a number of days, zero or more"));
+            }
+            String protocol = req.queryParams("protocol");
+            Optional<IntervalCategory> category = IntervalCategory.forElapsedDays(days);
+            Map<String, Object> response = new LinkedHashMap<>();
+            response.put("elapsedDays", days);
+            response.put("intervalCategory", category.orElse(null));
+            Optional<MdcSnapshot> snapshot = MdcEstimateService.latestSnapshot();
+            List<MdcEstimate> estimates = new ArrayList<>();
+            if (snapshot.isPresent() && category.isPresent()){
+                MdcSnapshot shown = researchAccessPolicy.forCaller(snapshot.get(), user.get());
+                response.put("snapshotId", shown.getSnapshotId());
+                for (MdcEstimate estimate : shown.getEstimates()){
+                    if (estimate.getIntervalCategory() == category.get() && (protocol == null || protocol.equals(estimate.getProtocolVersion()))){
+                        estimates.add(estimate);
+                    }
+                }
+            }
+            response.put("estimates", estimates);
+            response.put("message", category.isEmpty()
+                    ? "No between-session category covers intervals under one day; the within-session estimate applies only to repeated trials in one session"
+                    : estimates.isEmpty() ? "No estimate has been calculated for this interval yet" : "Estimates are not interpolated between interval categories");
+            return gson.toJson(response);
+        });
+
+        get("/mdc/sessions/:customer", (req, res) -> {
+            res.type("application/json");
+            Optional<User> user = authenticatedUser(req);
+            if (!researchAccessPolicy.canViewParticipant(user.orElse(null), req.params(":customer"))){
+                res.status(user.isEmpty() ? 401 : 403);
+                return gson.toJson(new ErrorPayload("You can only view your own sessions"));
+            }
+            return gson.toJson(MdcEstimateService.participantSessions(user.get()));
+        });
+
+        get("/mdc/interpretation/:customer", (req, res) -> {
+            res.type("application/json");
+            String customer = req.params(":customer");
+            Optional<User> user = authenticatedUser(req);
+            if (!researchAccessPolicy.canViewParticipant(user.orElse(null), customer)){
+                res.status(user.isEmpty() ? 401 : 403);
+                return gson.toJson(new ErrorPayload("You can only interpret your own results"));
+            }
+            try {
+                LongitudinalChangeInterpretation interpretation = LongitudinalChangeInterpreter.interpret(customer,
+                        MdcEstimateService.participantSessions(user.get()), req.queryParams("previousSessionId"), req.queryParams("currentSessionId"),
+                        researchAccessPolicy.forCaller(MdcEstimateService.latestSnapshot().orElse(null), user.get()));
+                return gson.toJson(interpretation);
+            } catch (LongitudinalChangeInterpreter.NotComparableException e){
+                res.status(422);
+                return gson.toJson(new ErrorPayload(e.getMessage()));
+            }
+        });
+
+        post("/mdc/recalculate", (req, res) -> {
+            res.type("application/json");
+            Optional<User> user = authenticatedUser(req);
+            if (!researchAccessPolicy.isResearchAdmin(user.orElse(null))){
+                res.status(user.isEmpty() ? 401 : 403);
+                return gson.toJson(new ErrorPayload("Only research admins can recalculate MDC95 estimates"));
+            }
+            MessageIntake.route(new RecalculateMdcEstimates(true));
+            res.status(202);
+            return gson.toJson(Map.of("message", "Recalculation started; GET /mdc/estimates returns the new snapshot when it finishes"));
+        });
+
+        post("/mdc/estimates/:estimateId/validation", (req, res) -> {
+            res.type("application/json");
+            Optional<User> user = authenticatedUser(req);
+            if (!researchAccessPolicy.isResearchAdmin(user.orElse(null))){
+                res.status(user.isEmpty() ? 401 : 403);
+                return gson.toJson(new ErrorPayload("Only research admins can validate MDC95 estimates"));
+            }
+            MdcValidationApproval request = req.body() == null || req.body().isEmpty() ? null : gson.fromJson(req.body(), MdcValidationApproval.class);
+            if (request == null || request.getReference() == null || request.getReference().trim().isEmpty()){
+                res.status(400);
+                return gson.toJson(new ErrorPayload("A reference to the study or decision that supports validation is required"));
+            }
+            try {
+                MdcValidationApproval approval = MdcEstimateService.approve(req.params(":estimateId"), user.get(), request.getReference().trim());
+                res.status(201);
+                return gson.toJson(approval);
+            } catch (IllegalStateException e){
+                res.status(409);
+                return gson.toJson(new ErrorPayload(e.getMessage()));
+            }
+        });
+
+        delete("/mdc/estimates/:estimateId/validation", (req, res) -> {
+            res.type("application/json");
+            Optional<User> user = authenticatedUser(req);
+            if (!researchAccessPolicy.isResearchAdmin(user.orElse(null))){
+                res.status(user.isEmpty() ? 401 : 403);
+                return gson.toJson(new ErrorPayload("Only research admins can revoke MDC95 validation"));
+            }
+            MdcEstimateService.revokeApproval(req.params(":estimateId"));
+            return gson.toJson(Map.of("message", "Validation revoked; the estimate returns to its calculated status after recalculation"));
+        });
+
+        // PATCH /user can only set consent dates, so withdrawing consent to share anonymous data has its own route
+        delete("/user/:username/consent/anonymousdata", (req, res) -> {
+            Optional<User> user = authenticatedUser(req);
+            String userName = req.params(":username");
+            if (user.isEmpty() || !(userName.equals(user.get().getUserName()) || researchAccessPolicy.isResearchAdmin(user.get()))){
+                res.status(user.isEmpty() ? 401 : 403);
+                return "You are not authorized to change this user's consent.";
+            }
+            Optional<User> existingUser = JedisData.getEntityById(User.class, userName);
+            if (existingUser.isEmpty()){
+                res.status(404);
+                return "User " + userName + " not found.";
+            }
+            existingUser.get().setAgreedToShareAnonymousData(0);
+            JedisData.updateRedisMap(existingUser.get(), userName);
+            MdcEstimateService.markDataChanged();//the next recalculation leaves this user's tests out
+            return "Consent to share anonymous data withdrawn";
+        });
+
         options("/*",
                 (request, response) -> {
 
@@ -711,6 +864,7 @@ public class WebAppRunner {
                     return "OK";
         });
         init();
+        MdcEstimateService.startScheduledRecalculation();
         startSimulationIfRequested();
         startTCPSocket();
     }
@@ -766,6 +920,15 @@ public class WebAppRunner {
             return "Unable to find user with phone number: "+phoneNumber;
         } else{
             return "Ok";
+        }
+    }
+
+    // Like userFilter, but an invalid or expired token gives an empty result instead of an exception
+    private static Optional<User> authenticatedUser(Request request){
+        try {
+            return userFilter(request, null);
+        } catch (Exception e){
+            return Optional.empty();
         }
     }
 
