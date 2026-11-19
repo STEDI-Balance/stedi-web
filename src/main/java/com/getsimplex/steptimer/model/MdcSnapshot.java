@@ -16,12 +16,12 @@ public class MdcSnapshot {
     private String modelVersion;
     private MdcPolicy policy;
     private String inputFingerprint;
-    private int participantsIncluded;
-    private int participantsExcludedWithoutConsent;
-    private int sessions;
-    private int pairsWithReportedChangeExcluded;
-    private int pairsUnderOneDay;
-    private int pairsWithDifferentProtocols;
+    private Integer participantsIncluded = 0;//null when suppressed
+    private Integer participantsExcludedWithoutConsent = 0;//null when suppressed
+    private Integer sessions = 0;//null when suppressed
+    private Integer pairsWithReportedChangeExcluded = 0;//null when suppressed
+    private Integer pairsUnderOneDay = 0;//null when suppressed
+    private Integer pairsWithDifferentProtocols = 0;//null when suppressed
     private List<MdcEstimate> estimates = new ArrayList<>();
     private List<LearningEffect> learningEffects = new ArrayList<>();
 
@@ -81,51 +81,51 @@ public class MdcSnapshot {
         this.inputFingerprint = inputFingerprint;
     }
 
-    public int getParticipantsIncluded() {
+    public Integer getParticipantsIncluded() {
         return participantsIncluded;
     }
 
-    public void setParticipantsIncluded(int participantsIncluded) {
+    public void setParticipantsIncluded(Integer participantsIncluded) {
         this.participantsIncluded = participantsIncluded;
     }
 
-    public int getParticipantsExcludedWithoutConsent() {
+    public Integer getParticipantsExcludedWithoutConsent() {
         return participantsExcludedWithoutConsent;
     }
 
-    public void setParticipantsExcludedWithoutConsent(int participantsExcludedWithoutConsent) {
+    public void setParticipantsExcludedWithoutConsent(Integer participantsExcludedWithoutConsent) {
         this.participantsExcludedWithoutConsent = participantsExcludedWithoutConsent;
     }
 
-    public int getSessions() {
+    public Integer getSessions() {
         return sessions;
     }
 
-    public void setSessions(int sessions) {
+    public void setSessions(Integer sessions) {
         this.sessions = sessions;
     }
 
-    public int getPairsWithReportedChangeExcluded() {
+    public Integer getPairsWithReportedChangeExcluded() {
         return pairsWithReportedChangeExcluded;
     }
 
-    public void setPairsWithReportedChangeExcluded(int pairsWithReportedChangeExcluded) {
+    public void setPairsWithReportedChangeExcluded(Integer pairsWithReportedChangeExcluded) {
         this.pairsWithReportedChangeExcluded = pairsWithReportedChangeExcluded;
     }
 
-    public int getPairsUnderOneDay() {
+    public Integer getPairsUnderOneDay() {
         return pairsUnderOneDay;
     }
 
-    public void setPairsUnderOneDay(int pairsUnderOneDay) {
+    public void setPairsUnderOneDay(Integer pairsUnderOneDay) {
         this.pairsUnderOneDay = pairsUnderOneDay;
     }
 
-    public int getPairsWithDifferentProtocols() {
+    public Integer getPairsWithDifferentProtocols() {
         return pairsWithDifferentProtocols;
     }
 
-    public void setPairsWithDifferentProtocols(int pairsWithDifferentProtocols) {
+    public void setPairsWithDifferentProtocols(Integer pairsWithDifferentProtocols) {
         this.pairsWithDifferentProtocols = pairsWithDifferentProtocols;
     }
 
