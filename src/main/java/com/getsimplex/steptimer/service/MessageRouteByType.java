@@ -28,6 +28,7 @@ public class MessageRouteByType extends UntypedActor {
     private ActorRef simulationActor = getContext().actorOf(new RoundRobinPool(1).props(Props.create(SimulationActor.class)));
     private ActorRef kafkaRiskTopicActor = getContext().actorOf(new RoundRobinPool(1).props(Props.create(KafkaRiskTopicConsumerActor.class)));
     private ActorRef kafkaRiskTopicProducerActor = getContext().actorOf(new RoundRobinPool(1).props(Props.create(KafkaRiskTopicProducerActor.class)));
+    private ActorRef mdcRecalculationActor = getContext().actorOf(new RoundRobinPool(1).props(Props.create(MdcRecalculationActor.class)));
 
     public void onReceive(Object object){
 
@@ -98,6 +99,8 @@ public class MessageRouteByType extends UntypedActor {
             deviceRouter.tell(object, self());
         } else if (object instanceof StartSimulation || object instanceof StopSimulation || object instanceof ContinueSimulation){
             simulationActor.tell(object, self());
+        } else if (object instanceof RecalculateMdcEstimates){
+            mdcRecalculationActor.tell(object, self());
         }
     }
 }

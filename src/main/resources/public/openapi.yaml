@@ -46,6 +46,151 @@ components:
       name: suresteps.session.token
       in: header
   schemas:
+    IntervalCategory:
+      type: string
+      nullable: true
+      enum: [within-session, short-term, weekly, monthly, extended]
+      description: "Provisional: within-session (trials in one session), short-term 1-3, weekly 4-14, monthly 15-45, extended over 45 completed days"
+    ConfidenceInterval:
+      type: object
+      properties:
+        lower:
+          type: number
+        upper:
+          type: number
+        level:
+          type: number
+          example: 0.95
+    MdcEstimate:
+      type: object
+      properties:
+        estimateId:
+          type: string
+          description: Fingerprint of the estimate's data and method
+        protocolVersion:
+          type: string
+        intervalCategory:
+          $ref: '#/components/schemas/IntervalCategory'
+        cohort:
+          type: string
+          enum: [stability-confirmed, observed]
+        estimateType:
+          type: string
+          enum: [MDC95, observed test-retest variability]
+        status:
+          type: string
+          enum: [insufficient-data, exploratory, research-supported, validated]
+        statusReasons:
+          type: array
+          items:
+            type: string
+        uniqueParticipants:
+          type: integer
+          nullable: true
+        eligiblePairs:
+          type: integer
+          nullable: true
+        pairsUsed:
+          type: integer
+          nullable: true
+        meanElapsedDays:
+          type: number
+          nullable: true
+        statistics:
+          type: object
+          nullable: true
+          properties:
+            pairs:
+              type: integer
+            meanPairedDifferenceSeconds:
+              type: number
+            meanPairedDifferenceCi:
+              $ref: '#/components/schemas/ConfidenceInterval'
+            systematicDifferenceDetected:
+              type: boolean
+            sdPairedDifferenceSeconds:
+              type: number
+            sdPairedDifferenceCi:
+              $ref: '#/components/schemas/ConfidenceInterval'
+            semSeconds:
+              type: number
+            semCi:
+              $ref: '#/components/schemas/ConfidenceInterval'
+            mdc95Seconds:
+              type: number
+            mdc95Ci:
+              $ref: '#/components/schemas/ConfidenceInterval'
+            limitsOfAgreementLowerSeconds:
+              type: number
+            limitsOfAgreementUpperSeconds:
+              type: number
+            limitsOfAgreementLowerCi:
+              $ref: '#/components/schemas/ConfidenceInterval'
+            limitsOfAgreementUpperCi:
+              $ref: '#/components/schemas/ConfidenceInterval'
+            iccAbsoluteAgreement:
+              type: number
+              nullable: true
+            zeroVariability:
+              type: boolean
+        analysisMethod:
+          type: string
+        modelVersion:
+          type: string
+        validation:
+          type: object
+          nullable: true
+        suppressed:
+          type: boolean
+    MdcSnapshot:
+      type: object
+      properties:
+        snapshotId:
+          type: string
+        computedAtUtc:
+          type: string
+          format: date-time
+        modelVersion:
+          type: string
+        policy:
+          type: object
+        inputFingerprint:
+          type: string
+        participantsIncluded:
+          type: integer
+          nullable: true
+        participantsExcludedWithoutConsent:
+          type: integer
+          nullable: true
+        estimates:
+          type: array
+          items:
+            $ref: '#/components/schemas/MdcEstimate'
+        learningEffects:
+          type: array
+          items:
+            type: object
+            properties:
+              protocolVersion:
+                type: string
+              factor:
+                type: string
+                enum: [trial-order, session-number]
+              comparison:
+                type: string
+              uniqueParticipants:
+                type: integer
+                nullable: true
+              meanDifferenceSeconds:
+                type: number
+                nullable: true
+              meanDifferenceCi:
+                $ref: '#/components/schemas/ConfidenceInterval'
+              systematicDifferenceDetected:
+                type: boolean
+                nullable: true
+              suppressed:
+                type: boolean
     DeviceMessage:
       type: object
       properties:
@@ -468,6 +613,18 @@ paths:
                   type: string
                   example: "007"
                   description: Device identifier
+                protocolVersion:
+                  type: string
+                  example: 30-RST-v1
+                  description: Optional. Test protocol; tests without one are grouped as "unversioned". Only sessions with the same protocol are compared.
+                softwareVersion:
+                  type: string
+                  example: 2.4.0
+                  description: Optional. App or device software version that recorded the test
+                healthChangeSinceLastTest:
+                  type: string
+                  enum: [NONE, ILLNESS, INJURY, REHABILITATION, OTHER]
+                  description: Optional. Participant-reported health change since their previous test. Missing means unknown, which is never treated as stable.
       responses:
         '200':
           description: Steps saved successfully
@@ -1212,6 +1369,252 @@ paths:
       responses:
         '200':
           description: Push token retrieved successfully
+
+  /user/{username}/consent/anonymousdata:
+    delete:
+      summary: Withdraw consent to share anonymous data
+      description: Sets agreedToShareAnonymousData to 0. The user's tests are left out of the next MDC95 recalculation. Allowed for the user or a research admin.
+      security:
+        - sessionToken: []
+      parameters:
+        - name: username
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Consent withdrawn
+        '401':
+          description: Missing or invalid session token
+        '403':
+          description: Not this user or a research admin
+        '404':
+          description: User not found
+
+  /mdc/estimates:
+    get:
+      summary: Get MDC95 estimates
+      description: |
+        Measurement variability for the 30-step rapid step test, per protocol, interval category, and cohort,
+        from anonymized test-retest data of participants who agreed to share anonymous data.
+        Cohorts smaller than MDC_MIN_PUBLIC_COHORT are suppressed except for research admins.
+        See docs/mdc95-methodology.md.
+      security:
+        - sessionToken: []
+      parameters:
+        - name: snapshotId
+          in: query
+          required: false
+          description: A historical snapshot; defaults to the latest
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The snapshot
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MdcSnapshot'
+        '401':
+          description: Missing or invalid session token
+        '404':
+          description: No snapshot has been calculated yet, or no snapshot with that id
+
+  /mdc/estimates/interval/{days}:
+    get:
+      summary: Get the MDC95 estimates for an elapsed time
+      description: Returns the estimates for the interval category that contains this many days. Estimates are never interpolated between categories. Under one full day has no category.
+      security:
+        - sessionToken: []
+      parameters:
+        - name: days
+          in: path
+          required: true
+          schema:
+            type: number
+            minimum: 0
+          example: 28
+        - name: protocol
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The matching category and estimates
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  elapsedDays:
+                    type: number
+                  intervalCategory:
+                    $ref: '#/components/schemas/IntervalCategory'
+                  snapshotId:
+                    type: string
+                  estimates:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/MdcEstimate'
+                  message:
+                    type: string
+        '400':
+          description: days is not a number of days, zero or more
+
+  /mdc/sessions/{email}:
+    get:
+      summary: Get your derived testing sessions
+      description: Your rapid step tests grouped into sessions, with each session's score (mean of its first two trials). Only your own.
+      security:
+        - sessionToken: []
+      parameters:
+        - name: email
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Sessions, oldest first
+        '403':
+          description: Not your own sessions
+
+  /mdc/interpretation/{email}:
+    get:
+      summary: Interpret your change between two sessions
+      description: |
+        Compares two scored sessions with the same protocol (your latest two by default) with the measurement-variability
+        estimate for the elapsed time. Never claims a clinical improvement or deterioration. If no sufficiently supported
+        estimate exists, returns the observed change without a threshold comparison. Only your own.
+      security:
+        - sessionToken: []
+      parameters:
+        - name: email
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: previousSessionId
+          in: query
+          required: false
+          schema:
+            type: string
+          example: S1767225600000
+        - name: currentSessionId
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The interpretation
+          content:
+            application/json:
+              example:
+                participantId: participant@test.com
+                previousSessionId: S1789864820999
+                currentSessionId: S1792283620999
+                previousScoreSeconds: 42.0
+                currentScoreSeconds: 35.0
+                changeSeconds: -7.0
+                percentChange: -16.67
+                elapsedDays: 28.0
+                intervalCategory: monthly
+                protocolVersion: 30-RST-v1
+                scoringMethod: mean-of-first-two-trials
+                reliability:
+                  snapshotId: "1795048821304"
+                  estimateId: E936c118e493522335727
+                  cohort: observed
+                  estimateType: observed test-retest variability
+                  status: exploratory
+                  mdc95Seconds: 12.5
+                  semSeconds: 4.51
+                  meanPairedDifferenceSeconds: -0.4
+                  systematicDifferenceDetected: false
+                  limitsOfAgreementLowerSeconds: -12.9
+                  limitsOfAgreementUpperSeconds: 12.1
+                  uniqueParticipants: 85
+                  eligiblePairs: 92
+                  modelVersion: 1.0.0
+                interpretation:
+                  direction: improvement
+                  exceedsMdc95: false
+                  outsideLimitsOfAgreement: false
+                  thresholdBasis: mdc95
+                  exceedsThreshold: false
+                  thresholdSupportsIndividualInterpretation: false
+                  clinicalSignificanceEstablished: false
+                  message: Completion time improved by 7.0 seconds. This change does not exceed the exploratory estimate of measurement variability for this interval (MDC95 12.5 seconds). That estimate is exploratory, not a validated threshold.
+                  limitations:
+                    - Exceeding a measurement-variability threshold does not establish a clinical improvement or deterioration in balance or mobility.
+        '403':
+          description: Not your own results
+        '422':
+          description: The sessions cannot be compared (fewer than two scored sessions, different protocols, or wrong order)
+
+  /mdc/recalculate:
+    post:
+      summary: Recalculate MDC95 estimates now (research admins)
+      description: Starts a background recalculation. Estimates are otherwise recalculated on a timer when data has changed.
+      security:
+        - sessionToken: []
+      responses:
+        '202':
+          description: Recalculation started
+        '403':
+          description: Not a research admin
+
+  /mdc/estimates/{estimateId}/validation:
+    post:
+      summary: Validate an estimate (research admins)
+      description: Marks one research-supported estimate as validated. The estimate id fingerprints its data and method, so new data needs a new approval.
+      security:
+        - sessionToken: []
+      parameters:
+        - name: estimateId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reference]
+              properties:
+                reference:
+                  type: string
+                  description: The study, protocol, or decision record that supports validation
+      responses:
+        '201':
+          description: Approval recorded; the estimate becomes validated after the recalculation this starts
+        '400':
+          description: Missing reference
+        '403':
+          description: Not a research admin
+        '409':
+          description: The estimate is not in the latest snapshot or is not research-supported
+    delete:
+      summary: Revoke an estimate's validation (research admins)
+      security:
+        - sessionToken: []
+      parameters:
+        - name: estimateId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Validation revoked
+        '403':
+          description: Not a research admin
+
 
   # ---------------------------------------------------------------------------------------------
   # Phone-only sign-up and account recovery (plain-text replies)
