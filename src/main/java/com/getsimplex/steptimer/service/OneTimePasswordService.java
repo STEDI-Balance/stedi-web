@@ -54,4 +54,17 @@ public class OneTimePasswordService {
         return loginToken;
     }
 
+    public static boolean verifyOneTimePasswordForPhone(String phoneNumber, Integer oneTimePassword, String region) throws Exception{
+        if (oneTimePassword == null){
+            return false;
+        }
+
+        Optional<OneTimePassword> otp = getOneTimePassword(oneTimePassword);
+        String formattedPhoneNumber = SendText.getFormattedPhone(phoneNumber, region);
+
+        return otp.isPresent()
+                && otp.get().getPhoneNumber().equals(formattedPhoneNumber)
+                && otp.get().getExpirationDate().after(new Date());
+    }
+
 }

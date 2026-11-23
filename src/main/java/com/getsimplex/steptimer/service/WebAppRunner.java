@@ -63,25 +63,194 @@ public class WebAppRunner {
             response.header("Access-Control-Allow-Headers", "Content-Type,Authorization,X-Requested-With,Content-Length,Accept,Origin,");
             response.header("Access-Control-Allow-Credentials", "true");
         });
+        // "Contact us" form. Still answers "sent" like before, so older apps keep working;
+        // now also accepts category + replyEmail, and gives real status codes when something's wrong.
         post("/contact", (req, res)->{
-            userFilter(req,res);
+            res.type("text/plain");
+            Optional<User> user;
             try {
-                EmailMessage emailMessage = gson.fromJson(req.body(), EmailMessage.class);
-                SendGmail.send(emailMessage.getToAddress(), emailMessage.getMessageText(), emailMessage.getSubject(), emailMessage.getName());
-
-                System.out.println(req.body());
-                res.status(200);
-
-            }catch(Exception e){
-                return null;
+                user = userFilter(req, res);
+                if (user.isEmpty()) throw new Exception("No user");
+            } catch (Exception e) {
+                res.status(401);
+                return "Please log in";
             }
-            return "sent";
+            try {
+                ContactService.send(user.get(), req.body());
+                res.status(200);
+                return "sent";
+            } catch (IllegalArgumentException e) {
+                res.status(400);
+                return e.getMessage();
+            } catch (ContactService.TooManyMessagesException e) {
+                res.status(429);
+                return e.getMessage();
+            } catch (Exception e) {
+                logger.severe("Error in /contact: " + e.getMessage());
+                res.status(500);
+                return "Unable to send message";
+            }
         });
 		//secure("/Applications/steptimerwebsocket/keystore.jks","password","/Applications/steptimerwebsocket/keystore.jks","password");
 
         post("/sensorUpdates", (req, res)-> WebServiceHandler.routeDeviceRequest(req));
         //post("/generateHistoricalGraph", (req, res)->routePdfRequest(req, res));
         //get("/readPdf", (req, res)->routePdfRequest(req, res));
+        // Phone-only sign-up, step 1: text a 4-digit code to a phone with no account yet.
+        post("/signup/start", (req, res) -> {
+            res.type("text/plain");
+            try {
+                SignupService.start(req.body());
+                res.status(200);
+                return "Ok";
+            } catch (IllegalArgumentException | com.google.i18n.phonenumbers.NumberParseException e) {
+                res.status(400);   // bad input: missing or unreadable phone number
+                return "A valid phone number is required";
+            } catch (AlreadyExistsException e) {
+                res.status(409);   // conflict: this phone already has an account
+                return e.getMessage();
+            } catch (SignupService.TooSoonException e) {
+                res.status(429);   // too many requests: wait before asking again
+                return e.getMessage();
+            } catch (Exception e) {
+                logger.severe("Error in /signup/start: " + e.getMessage());
+                res.status(500);
+                return "Unable to start sign-up";
+            }
+        });
+
+        // Phone-only sign-up, step 2: check the code, create the account, return a session token.
+        post("/signup/verify", (req, res) -> {
+            res.type("text/plain");
+            try {
+                String token = SignupService.verify(req.body());
+                res.status(200);
+                return token;
+            } catch (com.google.i18n.phonenumbers.NumberParseException e) {
+                res.status(400);
+                return "A valid phone number is required";
+            } catch (IllegalArgumentException | SignupService.InvalidCodeException e) {
+                res.status(400);   // a field is missing or wrong, or the code is wrong/expired
+                return e.getMessage();
+            } catch (AlreadyExistsException e) {
+                res.status(409);   // phone, username or email already belongs to someone
+                return e.getMessage();
+            } catch (Exception e) {
+                logger.severe("Error in /signup/verify: " + e.getMessage());
+                res.status(500);
+                return "Unable to create account";
+            }
+        });
+
+        // Account recovery, step 1: email a code. Always the same answer, so nobody can
+        // use this to find out which emails have accounts (even if sending fails).
+        post("/recovery/start", (req, res) -> {
+            res.type("text/plain");
+            try {
+                RecoveryService.start(req.body());
+            } catch (Exception e) {
+                logger.severe("Error in /recovery/start: " + e.getMessage());
+            }
+            res.status(200);
+            return RecoveryService.START_REPLY;
+        });
+
+        // Account recovery, step 2: email code is right -> text a code to the new phone.
+        post("/recovery/verify", (req, res) -> {
+            res.type("text/plain");
+            try {
+                RecoveryService.verify(req.body());
+                res.status(200);
+                return "Ok";
+            } catch (com.google.i18n.phonenumbers.NumberParseException e) {
+                res.status(400);
+                return "A valid phone number is required";
+            } catch (IllegalArgumentException | SignupService.InvalidCodeException e) {
+                res.status(400);
+                return e.getMessage();
+            } catch (AlreadyExistsException e) {
+                res.status(409);
+                return e.getMessage();
+            } catch (Exception e) {
+                logger.severe("Error in /recovery/verify: " + e.getMessage());
+                res.status(500);
+                return "Unable to continue recovery";
+            }
+        });
+
+        // Account recovery, step 3: text code is right -> move the account, return a session token.
+        post("/recovery/confirm", (req, res) -> {
+            res.type("text/plain");
+            try {
+                String token = RecoveryService.confirm(req.body());
+                res.status(200);
+                return token;
+            } catch (IllegalArgumentException | SignupService.InvalidCodeException e) {
+                res.status(400);
+                return e.getMessage();
+            } catch (AlreadyExistsException e) {
+                res.status(409);
+                return e.getMessage();
+            } catch (Exception e) {
+                logger.severe("Error in /recovery/confirm: " + e.getMessage());
+                res.status(500);
+                return "Unable to finish recovery";
+            }
+        });
+
+        // Family profiles. Every route needs a logged-in user and only touches that user's profiles.
+        get("/profiles", (req, res) ->
+                withLoggedInUser(req, res, user -> ProfileService.list(user)));
+        post("/profiles", (req, res) ->
+                withLoggedInUser(req, res, user -> {
+                    res.status(201);   // 201 Created
+                    return ProfileService.addFamilyMember(user, req.body());
+                }));
+        get("/profiles/:id", (req, res) ->
+                withLoggedInUser(req, res, user -> ProfileService.getOwned(user, req.params(":id"))));
+        patch("/profiles/:id", (req, res) ->
+                withLoggedInUser(req, res, user -> ProfileService.update(user, req.params(":id"), req.body())));
+        delete("/profiles/:id", (req, res) ->
+                withLoggedInUser(req, res, user -> {
+                    ProfileService.delete(user, req.params(":id"));
+                    return "Deleted";
+                }));
+
+        // Balance preferences (one set per profile).
+        get("/profiles/:id/preferences", (req, res) ->
+                withLoggedInUser(req, res, user -> PreferencesService.get(user, req.params(":id"))));
+        put("/profiles/:id/preferences", (req, res) ->
+                withLoggedInUser(req, res, user -> PreferencesService.put(user, req.params(":id"), req.body())));
+
+        // Two-round Rapid Step Tests (one history per profile).
+        post("/profiles/:id/tests", (req, res) ->
+                withLoggedInUser(req, res, user -> {
+                    BalanceTestService.SaveResult saved = BalanceTestService.save(user, req.params(":id"), req.body());
+                    res.status(saved.created ? 201 : 200);   // 201 = new test saved, 200 = already had it (a resend)
+                    return saved.test;
+                }));
+        get("/profiles/:id/tests", (req, res) ->      // optional ?from=&to= in milliseconds
+                withLoggedInUser(req, res, user ->
+                        BalanceTestService.list(user, req.params(":id"), req.queryParams("from"), req.queryParams("to"))));
+        get("/tests/:testId", (req, res) ->
+                withLoggedInUser(req, res, user -> BalanceTestService.getOne(user, req.params(":testId"))));
+
+        // Paired STEDI sensors (Figma "Devices").
+        get("/devices", (req, res) ->
+                withLoggedInUser(req, res, user -> DeviceService.list(user)));
+        post("/devices", (req, res) ->
+                withLoggedInUser(req, res, user -> {
+                    res.status(201);
+                    return DeviceService.pair(user, req.body());
+                }));
+        patch("/devices/:deviceId", (req, res) ->
+                withLoggedInUser(req, res, user -> DeviceService.update(user, req.params(":deviceId"), req.body())));
+        delete("/devices/:deviceId", (req, res) ->
+                withLoggedInUser(req, res, user -> {
+                    DeviceService.unpair(user, req.params(":deviceId"));
+                    return "Unpaired";
+                }));
+
         post("/user", (req, res)-> {
             String response="Error creating user";
             try {
@@ -115,6 +284,7 @@ public class WebAppRunner {
                 User userUpdate = gson.fromJson(req.body(), User.class);
 
                 boolean updated = false;
+                boolean phoneUpdated = false;
 
                 // Update password if provided
                 if (userUpdate.getPassword() != null) {
@@ -139,6 +309,58 @@ public class WebAppRunner {
                 if (userUpdate.getDeviceNickName() != null) {
                     existingUser.setDeviceNickName(userUpdate.getDeviceNickName());
                     updated = true;
+                }
+
+                // Cell number changes must prove control of the new number first.
+                if (userUpdate.getPhone() != null && !userUpdate.getPhone().isEmpty()) {
+                    String requestedRegion = userUpdate.getRegion() != null && !userUpdate.getRegion().isEmpty()
+                            ? userUpdate.getRegion()
+                            : existingUser.getRegion();
+                    if (requestedRegion == null || requestedRegion.isEmpty()){
+                        requestedRegion = "US";
+                    }
+
+                    String formattedPhone = SendText.getFormattedPhone(userUpdate.getPhone(), requestedRegion);
+                    if (!formattedPhone.equals(existingUser.getPhone())) {
+                        if (!OneTimePasswordService.verifyOneTimePasswordForPhone(userUpdate.getPhone(), userUpdate.getOneTimePassword(), requestedRegion)) {
+                            res.status(400);
+                            response = "A valid one-time password is required before changing the cell number";
+                            res.body(response);
+                            return response;
+                        }
+
+                        try {
+                            User userWithRequestedPhone = FindUser.getUserByPhone(userUpdate.getPhone(), requestedRegion);
+                            if (userWithRequestedPhone != null && !userWithRequestedPhone.getUserName().equals(existingUser.getUserName())) {
+                                res.status(409);
+                                response = "Cell number is already registered";
+                                res.body(response);
+                                return response;
+                            }
+                        } catch (Exception ignored) {
+                            // No existing user has this phone number.
+                        }
+
+                        String oldPhone = existingUser.getPhone();
+                        existingUser.setPhone(formattedPhone);
+                        existingUser.setWhatsAppPhone(userUpdate.getWhatsAppPhone() != null && !userUpdate.getWhatsAppPhone().isEmpty()
+                                ? SendText.getFormattedPhone(userUpdate.getWhatsAppPhone(), requestedRegion)
+                                : formattedPhone);
+                        existingUser.setRegion(requestedRegion);
+
+                        Optional<Customer> customerOptional = CustomerService.findCustomerByPhone(oldPhone);
+                        if (customerOptional.isPresent()) {
+                            Customer customer = customerOptional.get();
+                            customer.setPhone(formattedPhone);
+                            customer.setWhatsAppPhone(existingUser.getWhatsAppPhone());
+                            customer.setRegion(requestedRegion);
+                            CustomerService.createOrUpdateCustomer(customer, true);
+                            CustomerService.deleteCustomer(oldPhone);
+                        }
+
+                        phoneUpdated = true;
+                        updated = true;
+                    }
                 }
 
                 // Update agreement dates if provided
@@ -169,7 +391,12 @@ public class WebAppRunner {
                 }
 
                 if (updated) {
-                    JedisData.updateRedisMap(existingUser, existingUser.getUserName());
+                    if (phoneUpdated) {
+                        String numericDigitsOnly = existingUser.getPhone().replaceAll("[^0-9]","");
+                        JedisData.loadToJedis(existingUser, existingUser.getUserName(), Long.valueOf(numericDigitsOnly));
+                    } else {
+                        JedisData.updateRedisMap(existingUser, existingUser.getUserName());
+                    }
                     res.status(200);
                     response = "User updated successfully";
                 } else {
@@ -226,6 +453,65 @@ public class WebAppRunner {
 
             res.body(response);
             return response;
+        });
+
+        post("/user/:username/phone-verification", (req, res) -> {
+            Optional<User> loggedInUserOptional = userFilter(req, res);
+            String existingUserName = req.params("username");
+            if(loggedInUserOptional.isEmpty() || !existingUserName.equals(loggedInUserOptional.get().getUserName())){
+                res.status(403);
+                return "You are not authorized to update this user.";
+            }
+
+            User phoneUpdate = gson.fromJson(req.body(), User.class);
+            String requestedRegion = phoneUpdate.getRegion() != null && !phoneUpdate.getRegion().isEmpty()
+                    ? phoneUpdate.getRegion()
+                    : loggedInUserOptional.get().getRegion();
+            if (requestedRegion == null || requestedRegion.isEmpty()){
+                requestedRegion = "US";
+            }
+
+            if (phoneUpdate.getPhone() == null || phoneUpdate.getPhone().isEmpty()){
+                res.status(400);
+                return "A cell number is required";
+            }
+
+            String formattedPhone = SendText.getFormattedPhone(phoneUpdate.getPhone(), requestedRegion);
+            if (formattedPhone.equals(loggedInUserOptional.get().getPhone())){
+                res.status(200);
+                return "Cell number is already verified";
+            }
+
+            try {
+                User userWithRequestedPhone = FindUser.getUserByPhone(phoneUpdate.getPhone(), requestedRegion);
+                if (userWithRequestedPhone != null && !userWithRequestedPhone.getUserName().equals(loggedInUserOptional.get().getUserName())) {
+                    res.status(409);
+                    return "Cell number is already registered";
+                }
+            } catch (Exception e) {
+                if (!e.getMessage().contains("not found")){
+                    res.status(409);
+                    return "Cell number is already registered";
+                }
+            }
+
+            int randomNum = ThreadLocalRandom.current().nextInt(1111, 10000);
+            OneTimePassword oneTimePassword = new OneTimePassword();
+            oneTimePassword.setOneTimePassword(randomNum);
+            oneTimePassword.setExpirationDate(new Date(System.currentTimeMillis()+60l*30l*1000l));
+            oneTimePassword.setLoginToken(req.headers("suresteps.session.token"));
+            oneTimePassword.setPhoneNumber(formattedPhone);
+            OneTimePasswordService.saveOneTimePassword(oneTimePassword);
+
+            Boolean whatsApp = Boolean.valueOf(req.queryParams("whatsApp"));
+            if(whatsApp){
+                SendWhatsApp.send(formattedPhone, TWILIO_OTP_MESSAGE_SID, String.valueOf(randomNum), requestedRegion);
+            } else {
+                SendText.send(formattedPhone, "Your STEDI one-time password is : "+String.valueOf(randomNum), requestedRegion);
+            }
+
+            res.status(200);
+            return "Ok";
         });
 
         get("/validate/:token", (req,res)->{
@@ -896,7 +1182,11 @@ public class WebAppRunner {
                 oneTimePassword.setPhoneNumber(phoneNumber);
                 OneTimePasswordService.saveOneTimePassword(oneTimePassword);
 
-                if(whatsApp && !user.getWhatsAppPhone().isEmpty()){
+                if (!SendText.isConfigured()) {
+                    // Local runs have no Twilio settings: skip the text, read the code from Redis (OneTimePasswordMap).
+                    logger.info("Twilio is not configured, so no SMS was sent. The sign-in code is in Redis (OneTimePasswordMap).");
+                }
+                else if(whatsApp && !user.getWhatsAppPhone().isEmpty()){
                     SendWhatsApp.send(phoneNumber, TWILIO_OTP_MESSAGE_SID, String.valueOf(randomNum), region);
                 }
                 else{
@@ -929,6 +1219,48 @@ public class WebAppRunner {
             return userFilter(request, null);
         } catch (Exception e){
             return Optional.empty();
+        }
+    }
+
+    /** The work a route does once we know who is logged in. */
+    private interface LoggedInAction {
+        Object run(User user) throws Exception;
+    }
+
+    /**
+     * Shared wrapper for the newer routes (profiles, preferences, tests):
+     *   1. check the session token -> 401 if missing or invalid
+     *   2. run the route's work
+     *   3. turn the answer into JSON, and each kind of error into its status code
+     */
+    private static Object withLoggedInUser(Request req, Response res, LoggedInAction action) {
+        res.type("application/json");
+        User user;
+        try {
+            Optional<User> found = userFilter(req, res);
+            if (found.isEmpty()) throw new Exception("No user");
+            user = found.get();
+        } catch (Exception e) {
+            res.status(401);   // Unauthorized: no valid session token
+            return gson.toJson(new ErrorPayload("Please log in"));
+        }
+
+        try {
+            Object result = action.run(user);
+            return result instanceof String ? gson.toJson(Map.of("message", result)) : gson.toJson(result);
+        } catch (IllegalArgumentException e) {
+            res.status(400);
+            return gson.toJson(new ErrorPayload(e.getMessage()));
+        } catch (NotFoundException e) {
+            res.status(404);
+            return gson.toJson(new ErrorPayload(e.getMessage()));
+        } catch (AlreadyExistsException e) {
+            res.status(409);
+            return gson.toJson(new ErrorPayload(e.getMessage()));
+        } catch (Exception e) {
+            logger.severe("Error in " + req.requestMethod() + " " + req.pathInfo() + ": " + e.getMessage());
+            res.status(500);
+            return gson.toJson(new ErrorPayload("Something went wrong"));
         }
     }
 
